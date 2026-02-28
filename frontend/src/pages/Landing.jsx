@@ -130,7 +130,7 @@ const Landing = () => {
               </div>
               
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                Toma el control de tus{" "}
+                Toma el jajajaj control de tus{" "}
                 <span className="gradient-text">finanzas personales</span>
               </h1>
               
