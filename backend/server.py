@@ -533,21 +533,49 @@ async def get_admin_user(request: Request) -> dict:
 
 @api_router.get("/admin/users")
 async def admin_get_all_users(request: Request):
-    """Get all users with their financial summaries"""
+    """Get all users with their financial summaries - optimized with aggregation"""
     await get_admin_user(request)
     
-    users = await db.users.find({}, {"_id": 0}).to_list(1000)
+    users = await db.users.find({}, {"_id": 0}).to_list(500)
     
-    # Enrich with financial data
+    # Batch fetch all data at once instead of N+1 queries
+    all_transactions = await db.transactions.find({}, {"_id": 0}).to_list(2000)
+    all_debts = await db.debts.find({}, {"_id": 0}).to_list(500)
+    all_savings = await db.savings_goals.find({}, {"_id": 0}).to_list(500)
+    all_surveys = await db.surveys.find({}, {"_id": 0}).to_list(500)
+    
+    # Group by user_id
+    txn_by_user = {}
+    for t in all_transactions:
+        uid = t["user_id"]
+        if uid not in txn_by_user:
+            txn_by_user[uid] = []
+        txn_by_user[uid].append(t)
+    
+    debts_by_user = {}
+    for d in all_debts:
+        uid = d["user_id"]
+        if uid not in debts_by_user:
+            debts_by_user[uid] = []
+        debts_by_user[uid].append(d)
+    
+    savings_by_user = {}
+    for s in all_savings:
+        uid = s["user_id"]
+        if uid not in savings_by_user:
+            savings_by_user[uid] = []
+        savings_by_user[uid].append(s)
+    
+    surveys_by_user = {s["user_id"]: s for s in all_surveys}
+    
+    # Enrich users
     enriched_users = []
     for user in users:
-        transactions = await db.transactions.find(
-            {"user_id": user["user_id"]}, {"_id": 0}
-        ).to_list(1000)
-        
-        debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
-        savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
-        survey = await db.surveys.find_one({"user_id": user["user_id"]}, {"_id": 0})
+        uid = user["user_id"]
+        transactions = txn_by_user.get(uid, [])
+        debts = debts_by_user.get(uid, [])
+        savings = savings_by_user.get(uid, [])
+        survey = surveys_by_user.get(uid)
         
         total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
         total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
