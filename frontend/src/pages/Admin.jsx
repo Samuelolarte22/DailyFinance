@@ -46,6 +46,8 @@ const Admin = () => {
   const [userDetail, setUserDetail] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [formData, setFormData] = useState({
     type: "expense",
     category: "",
