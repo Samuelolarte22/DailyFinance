@@ -191,6 +191,16 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Admin />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
