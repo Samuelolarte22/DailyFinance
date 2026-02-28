@@ -8,7 +8,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { 
-  PiggyBank, 
+  Wallet, 
   ChevronRight, 
   ChevronLeft,
   DollarSign,
