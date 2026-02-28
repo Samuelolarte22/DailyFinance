@@ -7,7 +7,8 @@ import {
   Mail, 
   LogOut,
   Shield,
-  Calendar
+  Calendar,
+  Wallet
 } from "lucide-react";
 
 const Profile = () => {
@@ -70,7 +71,7 @@ const Profile = () => {
               <div className="flex items-center justify-center sm:justify-start gap-2 mt-3">
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
                   <Shield className="w-3 h-3" />
-                  Participante Beta
+                  Usuario activo
                 </span>
               </div>
             </div>
@@ -109,7 +110,7 @@ const Profile = () => {
             <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30">
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Encuesta completada</span>
+                <span className="text-sm text-muted-foreground">Perfil completado</span>
               </div>
               <span className={`text-sm font-medium ${user?.has_completed_survey ? 'text-income' : 'text-expense'}`}>
                 {user?.has_completed_survey ? 'Sí' : 'No'}
@@ -120,29 +121,26 @@ const Profile = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle style={{ fontFamily: 'Epilogue, sans-serif' }}>
-              Sobre el proyecto
+            <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Epilogue, sans-serif' }}>
+              <Wallet className="w-5 h-5" />
+              Sobre DailyFinance
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-              <h4 className="font-medium mb-2">Beta Cerrada - Investigación</h4>
+              <h4 className="font-medium mb-2">Tu asesor financiero personal</h4>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Gracias por participar en la evaluación del sistema de gestión 
-                financiera. Tu uso de la aplicación contribuye a la investigación 
-                sobre el impacto de herramientas digitales en la educación financiera 
-                de estudiantes universitarios.
+                DailyFinance te ayuda a organizar tus finanzas personales, 
+                controlar tus gastos y alcanzar tus metas de ahorro de manera 
+                simple y efectiva.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-muted/30">
-              <p className="text-xs text-muted-foreground">
-                <strong>Título del estudio:</strong> Evaluación de un sistema de gestión 
-                de información financiera para la organización de gastos en estudiantes 
-                universitarios: estudio en una beta cerrada
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                <strong>Institución:</strong> Universidad Ean - Facultad de Ingeniería
+              <p className="text-sm text-muted-foreground">
+                <strong>Funcionalidades:</strong> Control de ingresos y gastos, 
+                gestión de deudas, metas de ahorro, reportes detallados y 
+                asesoría personalizada.
               </p>
             </div>
           </CardContent>
@@ -156,7 +154,7 @@ const Profile = () => {
             <div>
               <h3 className="font-medium">Cerrar sesión</h3>
               <p className="text-sm text-muted-foreground">
-                Salir de tu cuenta de StudentFinance
+                Salir de tu cuenta de DailyFinance
               </p>
             </div>
             <Button 

@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Sparkles,
   Target,
-  Shield
+  Shield,
+  Wallet,
+  LineChart
 } from "lucide-react";
 
 const Landing = () => {
@@ -55,8 +57,8 @@ const Landing = () => {
     },
     {
       icon: BarChart3,
-      title: "Reportes Comparativos",
-      description: "Compara tu situación financiera antes y después de usar el sistema.",
+      title: "Reportes Detallados",
+      description: "Analiza tu evolución financiera con reportes comparativos.",
       color: "bg-debt"
     }
   ];
@@ -65,7 +67,7 @@ const Landing = () => {
     {
       icon: Sparkles,
       title: "Fácil de usar",
-      description: "Interfaz intuitiva diseñada para estudiantes"
+      description: "Interfaz intuitiva y amigable"
     },
     {
       icon: Target,
@@ -95,10 +97,10 @@ const Landing = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <PiggyBank className="w-4 h-4 text-primary-foreground" />
+                <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
               <span className="font-semibold text-lg" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                StudentFinance
+                DailyFinance
               </span>
             </div>
             <Button 
@@ -124,17 +126,17 @@ const Landing = () => {
             <div className="space-y-8 animate-fadeIn">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
                 <Sparkles className="w-4 h-4" />
-                Beta Cerrada - Investigación Universitaria
+                Tu asesor financiero personal
               </div>
               
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                Aprende a gestionar tus{" "}
+                Toma el control de tus{" "}
                 <span className="gradient-text">finanzas personales</span>
               </h1>
               
               <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-                Sistema diseñado para ayudar a estudiantes universitarios a organizar 
-                sus gastos, controlar deudas y alcanzar sus metas de ahorro.
+                Organiza tus gastos, controla tus deudas y alcanza tus metas de ahorro 
+                con nuestra plataforma de gestión financiera.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
@@ -144,7 +146,7 @@ const Landing = () => {
                   className="rounded-full font-medium text-base px-8 btn-press"
                   data-testid="hero-cta-btn"
                 >
-                  Comenzar ahora
+                  Comenzar gratis
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
                 <Button 
@@ -161,8 +163,8 @@ const Landing = () => {
             <div className="relative animate-fadeIn" style={{ animationDelay: '0.2s' }}>
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img 
-                  src="https://images.pexels.com/photos/1454360/pexels-photo-1454360.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
-                  alt="Estudiantes en campus universitario"
+                  src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80"
+                  alt="Gestión financiera"
                   className="w-full h-auto object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
@@ -193,8 +195,7 @@ const Landing = () => {
               Todo lo que necesitas para tus finanzas
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Herramientas diseñadas específicamente para las necesidades financieras 
-              de estudiantes universitarios.
+              Herramientas completas para gestionar tu dinero de manera inteligente y alcanzar tus objetivos.
             </p>
           </div>
 
@@ -228,15 +229,15 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
               <img 
-                src="https://images.unsplash.com/photo-1654785419681-6f8415d8ec6d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwc3R1ZHlpbmclMjBsYXB0b3AlMjBtaW5pbWFsaXN0JTIwcGFzdGVsfGVufDB8fHx8MTc3MjMwMDYxM3ww&ixlib=rb-4.1.0&q=85"
-                alt="Estudiante organizando notas"
+                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80"
+                alt="Análisis financiero"
                 className="rounded-2xl shadow-xl"
               />
             </div>
 
             <div className="space-y-8">
               <h2 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                Diseñado para estudiantes como tú
+                Simplifica tu vida financiera
               </h2>
               
               <div className="space-y-6">
@@ -255,13 +256,15 @@ const Landing = () => {
 
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="p-6">
-                  <p className="text-sm text-muted-foreground mb-2">Proyecto de investigación</p>
-                  <p className="font-medium" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                    "Evaluación de un sistema de gestión de información financiera 
-                    para la organización de gastos en estudiantes universitarios"
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Universidad Ean - Facultad de Ingeniería
+                  <div className="flex items-center gap-3 mb-3">
+                    <LineChart className="w-6 h-6 text-primary" />
+                    <p className="font-medium" style={{ fontFamily: 'Epilogue, sans-serif' }}>
+                      Asesoría financiera personalizada
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Recibe orientación de expertos para mejorar tus hábitos financieros 
+                    y alcanzar tus metas más rápido.
                   </p>
                 </CardContent>
               </Card>
@@ -274,11 +277,11 @@ const Landing = () => {
       <section className="py-20 px-4 bg-primary/5">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <h2 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-            Participa en nuestra beta cerrada
+            Comienza a transformar tus finanzas hoy
           </h2>
           <p className="text-muted-foreground">
-            Únete a otros estudiantes universitarios que están mejorando sus 
-            hábitos financieros mientras contribuyen a la investigación académica.
+            Únete a miles de personas que ya están mejorando su salud financiera 
+            con DailyFinance.
           </p>
           <Button 
             size="lg" 
@@ -286,7 +289,7 @@ const Landing = () => {
             className="rounded-full font-medium text-base px-8 btn-press"
             data-testid="cta-btn"
           >
-            Comenzar gratis
+            Crear cuenta gratis
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -297,14 +300,14 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-              <PiggyBank className="w-3 h-3 text-primary-foreground" />
+              <Wallet className="w-3 h-3 text-primary-foreground" />
             </div>
             <span className="text-sm text-muted-foreground">
-              StudentFinance Beta © 2026
+              DailyFinance © 2026
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Proyecto de investigación - Universidad Ean
+            Tu aliado en finanzas personales
           </p>
         </div>
       </footer>

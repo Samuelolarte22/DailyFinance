@@ -12,7 +12,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { 
-  PiggyBank, 
+  Wallet, 
   LayoutDashboard, 
   ArrowLeftRight, 
   CreditCard, 
@@ -68,10 +68,10 @@ const Layout = ({ children }) => {
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <PiggyBank className="w-4 h-4 text-primary-foreground" />
+                <Wallet className="w-4 h-4 text-primary-foreground" />
               </div>
               <span className="font-semibold text-lg hidden sm:block" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                StudentFinance
+                DailyFinance
               </span>
             </Link>
 
@@ -202,14 +202,14 @@ const Layout = ({ children }) => {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                <PiggyBank className="w-3 h-3 text-primary-foreground" />
+                <Wallet className="w-3 h-3 text-primary-foreground" />
               </div>
               <span className="text-sm text-muted-foreground">
-                StudentFinance Beta © 2026
+                DailyFinance © 2026
               </span>
             </div>
             <p className="text-xs text-muted-foreground text-center sm:text-right">
-              Proyecto de investigación - Universidad Ean
+              Tu aliado en finanzas personales
             </p>
           </div>
         </div>
