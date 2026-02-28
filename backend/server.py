@@ -687,6 +687,32 @@ async def admin_toggle_user_admin(user_id: str, request: Request):
         "is_admin": new_admin_status
     }
 
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, request: Request):
+    """Delete a user and all their associated data"""
+    admin = await get_admin_user(request)
+    
+    # Prevent self-deletion
+    if admin["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Delete all user data
+    await db.transactions.delete_many({"user_id": user_id})
+    await db.debts.delete_many({"user_id": user_id})
+    await db.savings_goals.delete_many({"user_id": user_id})
+    await db.surveys.delete_many({"user_id": user_id})
+    await db.user_sessions.delete_many({"user_id": user_id})
+    await db.users.delete_one({"user_id": user_id})
+    
+    return {
+        "message": f"Usuario {target_user.get('name', 'desconocido')} eliminado correctamente",
+        "deleted_user_id": user_id
+    }
+
 @api_router.get("/admin/summary")
 async def admin_get_global_summary(request: Request):
     """Get global summary of all users for admin dashboard"""
