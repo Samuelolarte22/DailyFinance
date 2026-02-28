@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import Survey from "./pages/Survey";
 import Profile from "./pages/Profile";
 import AuthCallback from "./pages/AuthCallback";
+import Admin from "./pages/Admin";
 
 // Components
 import Layout from "./components/Layout";
