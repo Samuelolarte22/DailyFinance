@@ -668,11 +668,11 @@ async def admin_get_global_summary(request: Request):
     """Get global summary of all users for admin dashboard"""
     await get_admin_user(request)
     
-    users = await db.users.find({}, {"_id": 0}).to_list(1000)
-    transactions = await db.transactions.find({}, {"_id": 0}).to_list(10000)
-    debts = await db.debts.find({}, {"_id": 0}).to_list(1000)
-    savings = await db.savings_goals.find({}, {"_id": 0}).to_list(1000)
-    surveys = await db.surveys.find({}, {"_id": 0}).to_list(1000)
+    users = await db.users.find({}, {"_id": 0}).to_list(500)
+    transactions = await db.transactions.find({}, {"_id": 0}).to_list(2000)
+    debts = await db.debts.find({}, {"_id": 0}).to_list(500)
+    savings = await db.savings_goals.find({}, {"_id": 0}).to_list(500)
+    surveys = await db.surveys.find({}, {"_id": 0}).to_list(500)
     
     total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
     total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
