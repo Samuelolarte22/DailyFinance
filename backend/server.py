@@ -663,6 +663,30 @@ async def admin_create_transaction(user_id: str, txn_data: AdminTransactionCreat
     
     return {"message": "Transaction created by admin", "transaction_id": txn.transaction_id}
 
+@api_router.put("/admin/users/{user_id}/toggle-admin")
+async def admin_toggle_user_admin(user_id: str, request: Request):
+    """Toggle admin status for a user"""
+    admin = await get_admin_user(request)
+    
+    # Prevent self-demotion
+    if admin["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="No puedes cambiar tu propio rol de admin")
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_admin_status = not target_user.get("is_admin", False)
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_admin": new_admin_status}}
+    )
+    
+    return {
+        "message": f"Usuario {'promovido a admin' if new_admin_status else 'removido de admin'}",
+        "is_admin": new_admin_status
+    }
+
 @api_router.get("/admin/summary")
 async def admin_get_global_summary(request: Request):
     """Get global summary of all users for admin dashboard"""
