@@ -691,6 +691,80 @@ const Admin = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) setDeleteConfirmText("");
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive" style={{ fontFamily: 'Epilogue, sans-serif' }}>
+              <AlertTriangle className="w-5 h-5" />
+              Eliminar usuario
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+              <p className="font-medium text-destructive mb-2">¡Atención! Esta acción es irreversible.</p>
+              <p className="text-sm text-muted-foreground">
+                Se eliminarán permanentemente todos los datos del usuario:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 list-disc list-inside">
+                <li>Información de perfil</li>
+                <li>Todas las transacciones</li>
+                <li>Deudas registradas</li>
+                <li>Metas de ahorro</li>
+                <li>Encuesta diagnóstica</li>
+              </ul>
+            </div>
+
+            {userDetail && (
+              <div className="p-4 rounded-xl bg-muted/50">
+                <p className="text-sm text-muted-foreground">Usuario a eliminar:</p>
+                <p className="font-semibold">{userDetail.user?.name}</p>
+                <p className="text-sm text-muted-foreground">{userDetail.user?.email}</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-sm">
+                Escribe <span className="font-mono font-bold text-destructive">ELIMINAR</span> para confirmar:
+              </Label>
+              <Input
+                placeholder="ELIMINAR"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                className="font-mono"
+                data-testid="delete-confirm-input"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1 rounded-full"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmText("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1 rounded-full"
+                onClick={handleDeleteUser}
+                disabled={deleteConfirmText !== "ELIMINAR"}
+                data-testid="confirm-delete-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Eliminar usuario
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
