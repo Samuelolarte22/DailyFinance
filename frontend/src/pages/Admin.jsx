@@ -147,6 +147,29 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (deleteConfirmText !== "ELIMINAR") {
+      toast.error("Debes escribir ELIMINAR para confirmar");
+      return;
+    }
+
+    try {
+      const response = await axios.delete(
+        `${API}/admin/users/${selectedUser}`,
+        { withCredentials: true }
+      );
+      toast.success(response.data.message);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmText("");
+      setSelectedUser(null);
+      setUserDetail(null);
+      fetchAdminData();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error(error.response?.data?.detail || "Error al eliminar usuario");
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
