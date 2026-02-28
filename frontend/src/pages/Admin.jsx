@@ -33,7 +33,9 @@ import {
   Plus,
   BarChart3,
   Search,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
