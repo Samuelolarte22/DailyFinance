@@ -20,7 +20,8 @@ import {
   BarChart3,
   User,
   LogOut,
-  Menu
+  Menu,
+  ShieldCheck
 } from "lucide-react";
 
 const Layout = ({ children }) => {
@@ -35,6 +36,11 @@ const Layout = ({ children }) => {
     { name: "Ahorros", href: "/savings", icon: Target },
     { name: "Reportes", href: "/reports", icon: BarChart3 },
   ];
+
+  // Add admin link if user is admin
+  if (user?.is_admin) {
+    navigation.push({ name: "Admin", href: "/admin", icon: ShieldCheck });
+  }
 
   const isActive = (href) => location.pathname === href;
 
