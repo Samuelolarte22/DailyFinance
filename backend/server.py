@@ -38,7 +38,20 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     has_completed_survey: bool = False
+    is_admin: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Admin emails list - add emails that should have admin access
+ADMIN_EMAILS = os.environ.get('ADMIN_EMAILS', '').split(',')
+
+class AdminTransactionCreate(BaseModel):
+    user_id: str
+    type: str
+    category: str
+    amount: float
+    description: Optional[str] = None
+    date: Optional[str] = None
+    created_by_admin: bool = True
 
 class Transaction(BaseModel):
     transaction_id: str = Field(default_factory=lambda: f"txn_{uuid.uuid4().hex[:12]}")
