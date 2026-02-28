@@ -61,6 +61,7 @@
 - [x] Debt management
 - [x] Savings goals
 - [x] Before/after reports
+- [x] Admin panel for advisors (view all users, add transactions)
 
 ### P1 (High Priority - Future)
 - [ ] Export financial reports as PDF
