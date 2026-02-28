@@ -277,16 +277,16 @@ const Admin = () => {
         </Card>
       </div>
 
-      {/* Research Stats */}
+      {/* Stats Overview */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <BarChart3 className="w-8 h-8 text-primary" />
               <div>
-                <p className="font-medium">Estadísticas de investigación</p>
+                <p className="font-medium">Resumen de usuarios</p>
                 <p className="text-sm text-muted-foreground">
-                  {summary?.users_with_survey || 0} de {summary?.total_users || 0} usuarios completaron la encuesta diagnóstica
+                  {summary?.users_with_survey || 0} de {summary?.total_users || 0} usuarios completaron su perfil financiero
                 </p>
               </div>
             </div>
