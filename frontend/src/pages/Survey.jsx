@@ -113,17 +113,17 @@ const Survey = () => {
         <div className="text-center mb-8 animate-fadeIn">
           <div className="flex items-center justify-center gap-2 mb-4">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <PiggyBank className="w-5 h-5 text-primary-foreground" />
+              <Wallet className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="font-semibold text-xl" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-              StudentFinance
+              DailyFinance
             </span>
           </div>
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-            Encuesta Diagnóstica
+            Perfil Financiero
           </h1>
           <p className="text-muted-foreground">
-            Ayúdanos a conocer tu situación financiera actual para personalizar tu experiencia.
+            Cuéntanos sobre tu situación financiera para personalizar tu experiencia.
           </p>
         </div>
 
