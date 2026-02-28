@@ -184,13 +184,22 @@ async def exchange_session(request: Request, response: Response):
     existing_user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
     if existing_user:
         user_id = existing_user["user_id"]
+        # Update admin status if email is in admin list
+        is_admin = auth_data["email"] in ADMIN_EMAILS
+        if is_admin != existing_user.get("is_admin", False):
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"is_admin": is_admin}}
+            )
     else:
+        is_admin = auth_data["email"] in ADMIN_EMAILS
         new_user = {
             "user_id": user_id,
             "email": auth_data["email"],
             "name": auth_data["name"],
             "picture": auth_data.get("picture"),
             "has_completed_survey": False,
+            "is_admin": is_admin,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(new_user)
