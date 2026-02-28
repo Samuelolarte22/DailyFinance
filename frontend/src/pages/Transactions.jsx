@@ -209,8 +209,8 @@ const Transactions = () => {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    {categories.map((cat, index) => (
+                      <SelectItem key={cat} value={cat} data-testid={`category-option-${index}`}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
