@@ -433,17 +433,28 @@ const Admin = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {userDetail.user?.user_id !== user?.user_id && (
-                    <Button 
-                      variant={userDetail.user?.is_admin ? "outline" : "secondary"}
-                      className="rounded-full"
-                      onClick={() => handleToggleAdmin(userDetail.user?.user_id)}
-                      data-testid="toggle-admin-btn"
-                    >
-                      <ShieldCheck className="w-4 h-4 mr-2" />
-                      {userDetail.user?.is_admin ? "Quitar Admin" : "Hacer Admin"}
-                    </Button>
+                    <>
+                      <Button 
+                        variant={userDetail.user?.is_admin ? "outline" : "secondary"}
+                        className="rounded-full"
+                        onClick={() => handleToggleAdmin(userDetail.user?.user_id)}
+                        data-testid="toggle-admin-btn"
+                      >
+                        <ShieldCheck className="w-4 h-4 mr-2" />
+                        {userDetail.user?.is_admin ? "Quitar Admin" : "Hacer Admin"}
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        className="rounded-full border-destructive text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteDialogOpen(true)}
+                        data-testid="delete-user-btn"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Eliminar
+                      </Button>
+                    </>
                   )}
                   <Button 
                     className="rounded-full btn-press"
