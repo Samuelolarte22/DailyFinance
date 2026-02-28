@@ -61,7 +61,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-background noise-bg">
-      {/* Navigation Header */}
+      {/* Header de navegacion */}
       <header className="sticky top-0 z-50 glass border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -75,7 +75,7 @@ const Layout = ({ children }) => {
               </span>
             </Link>
 
-            {/* Desktop Navigation */}
+            {/* Navigation principal */}
             <nav className="hidden md:flex items-center gap-1">
               {navigation.map((item) => (
                 <Link key={item.name} to={item.href}>
@@ -95,7 +95,7 @@ const Layout = ({ children }) => {
               ))}
             </nav>
 
-            {/* User Menu & Mobile Toggle */}
+            {/* Menu de usuario & Mobile Toggle */}
             <div className="flex items-center gap-2">
               {/* User Dropdown */}
               <DropdownMenu>

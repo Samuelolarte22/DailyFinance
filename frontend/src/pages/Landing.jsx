@@ -31,7 +31,7 @@ const Landing = () => {
   }, [user, loading, navigate]);
 
   const handleLogin = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    // REMINDER: no hardcodear la URL plox
     const redirectUrl = window.location.origin + '/dashboard';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
@@ -62,7 +62,7 @@ const Landing = () => {
       color: "bg-debt"
     }
   ];
-
+// beneficiooos
   const benefits = [
     {
       icon: Sparkles,
@@ -114,9 +114,9 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* seccion extra' hero */}
       <section className="relative pt-32 pb-20 px-4">
-        {/* Background blobs */}
+        {/* Background */}
         <div className="absolute top-20 left-10 w-72 h-72 bg-income/30 blob float opacity-50" />
         <div className="absolute top-40 right-20 w-96 h-96 bg-savings/20 blob float opacity-40" style={{ animationDelay: '-3s' }} />
         <div className="absolute bottom-10 left-1/3 w-64 h-64 bg-debt/20 blob float opacity-30" style={{ animationDelay: '-5s' }} />
@@ -170,7 +170,7 @@ const Landing = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
               </div>
               
-              {/* Floating card */}
+              {/* cards flotantes */}
               <Card className="absolute -bottom-6 -left-6 p-4 shadow-lg animate-slideIn card-hover" style={{ animationDelay: '0.5s' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-income flex items-center justify-center">
@@ -223,7 +223,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Benefits Section */}
+      {/* beneficios 7u7 */}
       <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -273,7 +273,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA*/}
       <section className="py-20 px-4 bg-primary/5">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <h2 className="text-3xl font-semibold tracking-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>

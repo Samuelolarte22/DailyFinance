@@ -23,14 +23,14 @@ db = client[os.environ['DB_NAME']]
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
-# Configure logging
+# loguins
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# ============== MODELS ==============
+# ============== MODELOS ==============
 
 class User(BaseModel):
     user_id: str
@@ -128,7 +128,7 @@ class DiagnosticSurveyCreate(BaseModel):
     main_financial_goal: str
     biggest_challenge: str
 
-# ============== AUTH HELPERS ==============
+# ============== AUTH HELPERS basado en framework ==============
 
 async def get_current_user(request: Request) -> dict:
     session_token = request.cookies.get("session_token")
@@ -158,7 +158,7 @@ async def get_current_user(request: Request) -> dict:
     
     return user
 
-# ============== AUTH ENDPOINTS ==============
+# ============== AUTH ENDPOINTS framework ==============
 
 @api_router.post("/auth/session")
 async def exchange_session(request: Request, response: Response):
