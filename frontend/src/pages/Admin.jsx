@@ -129,6 +129,22 @@ const Admin = () => {
     }
   };
 
+  const handleToggleAdmin = async (userId) => {
+    try {
+      const response = await axios.put(
+        `${API}/admin/users/${userId}/toggle-admin`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(response.data.message);
+      fetchUserDetail(userId);
+      fetchAdminData();
+    } catch (error) {
+      console.error("Error toggling admin:", error);
+      toast.error(error.response?.data?.detail || "Error al cambiar rol de admin");
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
