@@ -398,7 +398,7 @@ const Admin = () => {
                     <p className="text-sm text-muted-foreground">{userDetail.user?.email}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {userDetail.user?.has_completed_survey && (
-                        <Badge variant="secondary" className="text-xs">Encuesta completada</Badge>
+                        <Badge variant="secondary" className="text-xs">Perfil completado</Badge>
                       )}
                       {userDetail.user?.is_admin && (
                         <Badge className="text-xs bg-primary">Admin</Badge>
@@ -406,14 +406,27 @@ const Admin = () => {
                     </div>
                   </div>
                 </div>
-                <Button 
-                  className="rounded-full btn-press"
-                  onClick={() => setTransactionDialogOpen(true)}
-                  data-testid="admin-add-transaction-btn"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar transacción
-                </Button>
+                <div className="flex items-center gap-2">
+                  {userDetail.user?.user_id !== user?.user_id && (
+                    <Button 
+                      variant={userDetail.user?.is_admin ? "outline" : "secondary"}
+                      className="rounded-full"
+                      onClick={() => handleToggleAdmin(userDetail.user?.user_id)}
+                      data-testid="toggle-admin-btn"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      {userDetail.user?.is_admin ? "Quitar Admin" : "Hacer Admin"}
+                    </Button>
+                  )}
+                  <Button 
+                    className="rounded-full btn-press"
+                    onClick={() => setTransactionDialogOpen(true)}
+                    data-testid="admin-add-transaction-btn"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar transacción
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="summary">
