@@ -513,6 +513,158 @@ async def get_dashboard(request: Request):
 async def root():
     return {"message": "StudentFinance API", "status": "healthy"}
 
+# ============== ADMIN ENDPOINTS ==============
+
+async def get_admin_user(request: Request) -> dict:
+    """Verify user is an admin"""
+    user = await get_current_user(request)
+    if not user.get("is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+@api_router.get("/admin/users")
+async def admin_get_all_users(request: Request):
+    """Get all users with their financial summaries"""
+    await get_admin_user(request)
+    
+    users = await db.users.find({}, {"_id": 0}).to_list(1000)
+    
+    # Enrich with financial data
+    enriched_users = []
+    for user in users:
+        transactions = await db.transactions.find(
+            {"user_id": user["user_id"]}, {"_id": 0}
+        ).to_list(1000)
+        
+        debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+        savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+        survey = await db.surveys.find_one({"user_id": user["user_id"]}, {"_id": 0})
+        
+        total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
+        total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
+        total_debt = sum(d["current_amount"] for d in debts)
+        total_savings = sum(s["current_amount"] for s in savings)
+        
+        enriched_users.append({
+            **user,
+            "financial_summary": {
+                "total_income": total_income,
+                "total_expenses": total_expenses,
+                "balance": total_income - total_expenses,
+                "total_debt": total_debt,
+                "total_savings": total_savings,
+                "transactions_count": len(transactions),
+                "debts_count": len(debts),
+                "savings_goals_count": len(savings)
+            },
+            "survey": survey
+        })
+    
+    return enriched_users
+
+@api_router.get("/admin/users/{user_id}")
+async def admin_get_user_detail(user_id: str, request: Request):
+    """Get detailed financial data for a specific user"""
+    await get_admin_user(request)
+    
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    transactions = await db.transactions.find(
+        {"user_id": user_id}, {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    
+    debts = await db.debts.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    savings = await db.savings_goals.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    survey = await db.surveys.find_one({"user_id": user_id}, {"_id": 0})
+    
+    total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
+    total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
+    
+    return {
+        "user": user,
+        "transactions": transactions,
+        "debts": debts,
+        "savings_goals": savings,
+        "survey": survey,
+        "summary": {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "balance": total_income - total_expenses,
+            "total_debt": sum(d["current_amount"] for d in debts),
+            "total_savings": sum(s["current_amount"] for s in savings)
+        }
+    }
+
+@api_router.post("/admin/users/{user_id}/transactions")
+async def admin_create_transaction(user_id: str, txn_data: AdminTransactionCreate, request: Request):
+    """Admin creates a transaction for a user"""
+    admin = await get_admin_user(request)
+    
+    # Verify target user exists
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    txn = Transaction(
+        user_id=user_id,
+        type=txn_data.type,
+        category=txn_data.category,
+        amount=txn_data.amount,
+        description=txn_data.description
+    )
+    
+    if txn_data.date:
+        txn.date = datetime.fromisoformat(txn_data.date.replace('Z', '+00:00'))
+    
+    doc = txn.model_dump()
+    doc["date"] = doc["date"].isoformat()
+    doc["created_by_admin"] = True
+    doc["admin_user_id"] = admin["user_id"]
+    await db.transactions.insert_one(doc)
+    
+    return {"message": "Transaction created by admin", "transaction_id": txn.transaction_id}
+
+@api_router.get("/admin/summary")
+async def admin_get_global_summary(request: Request):
+    """Get global summary of all users for admin dashboard"""
+    await get_admin_user(request)
+    
+    users = await db.users.find({}, {"_id": 0}).to_list(1000)
+    transactions = await db.transactions.find({}, {"_id": 0}).to_list(10000)
+    debts = await db.debts.find({}, {"_id": 0}).to_list(1000)
+    savings = await db.savings_goals.find({}, {"_id": 0}).to_list(1000)
+    surveys = await db.surveys.find({}, {"_id": 0}).to_list(1000)
+    
+    total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
+    total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
+    total_debt = sum(d["current_amount"] for d in debts)
+    total_savings = sum(s["current_amount"] for s in savings)
+    
+    # Average financial knowledge from surveys
+    avg_knowledge = 0
+    if surveys:
+        avg_knowledge = sum(s.get("financial_knowledge", 0) for s in surveys) / len(surveys)
+    
+    return {
+        "total_users": len(users),
+        "users_with_survey": len(surveys),
+        "total_transactions": len(transactions),
+        "total_debts": len(debts),
+        "total_savings_goals": len(savings),
+        "financial_totals": {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "total_debt": total_debt,
+            "total_savings": total_savings
+        },
+        "averages": {
+            "avg_financial_knowledge": round(avg_knowledge, 2),
+            "avg_transactions_per_user": round(len(transactions) / max(len(users), 1), 1)
+        }
+    }
+
 # Include router and middleware
 app.include_router(api_router)
 
