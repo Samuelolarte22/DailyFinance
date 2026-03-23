@@ -148,7 +148,7 @@ const Debts = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Cargando...</div>
+        <div className="animate-pulse text-[#D4AF37]">Cargando...</div>
       </div>
     );
   }
@@ -160,32 +160,33 @@ const Debts = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-            Gestión de Deudas
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Gestión de <span className="gold-text">Deudas</span>
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Controla y reduce tus deudas paso a paso
+          <p className="text-gray-400 mt-1">
+            Controla y reduce tus deudas paso a paso (vista global)
           </p>
         </div>
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-full btn-press" data-testid="add-debt-btn">
+            <Button className="btn-gold rounded-md" data-testid="add-debt-btn">
               <Plus className="w-4 h-4 mr-2" />
               Nueva deuda
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
             <DialogHeader>
-              <DialogTitle style={{ fontFamily: 'Epilogue, sans-serif' }}>
+              <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
                 Registrar deuda
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Nombre de la deuda</Label>
+                <Label className="text-gray-300">Nombre de la deuda</Label>
                 <Input
-                  placeholder="Ej: Préstamo universitario"
+                  placeholder="Ej: Préstamo personal"
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   data-testid="debt-name-input"
@@ -194,13 +195,13 @@ const Debts = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Monto total original (COP)</Label>
+                  <Label className="text-gray-300">Monto total original (COP)</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <Input
                       type="number"
                       placeholder="0"
-                      className="pl-8 font-mono"
+                      className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                       value={formData.total_amount}
                       onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
                       data-testid="total-amount-input"
@@ -209,13 +210,13 @@ const Debts = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Monto pendiente (COP)</Label>
+                  <Label className="text-gray-300">Monto pendiente (COP)</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <Input
                       type="number"
                       placeholder="0"
-                      className="pl-8 font-mono"
+                      className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                       value={formData.current_amount}
                       onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
                       data-testid="current-amount-input"
@@ -226,11 +227,12 @@ const Debts = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tasa de interés (%) - Opcional</Label>
+                  <Label className="text-gray-300">Tasa de interés (%)</Label>
                   <Input
                     type="number"
                     step="0.1"
                     placeholder="0"
+                    className="bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.interest_rate}
                     onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
                     data-testid="interest-rate-input"
@@ -238,9 +240,10 @@ const Debts = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Fecha de vencimiento - Opcional</Label>
+                  <Label className="text-gray-300">Fecha de vencimiento</Label>
                   <Input
                     type="date"
+                    className="bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.due_date}
                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                     data-testid="due-date-input"
@@ -248,7 +251,7 @@ const Debts = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full rounded-full btn-press" data-testid="submit-debt-btn">
+              <Button type="submit" className="w-full btn-gold rounded-md" data-testid="submit-debt-btn">
                 Registrar deuda
               </Button>
             </form>
@@ -257,29 +260,31 @@ const Debts = () => {
       </div>
 
       {/* Summary Card */}
-      <Card className="bg-debt/20 border-debt/30" data-testid="debt-summary-card">
+      <Card className="bg-purple-500/10 border-purple-500/30" data-testid="debt-summary-card">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-debt flex items-center justify-center">
-              <CreditCard className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <CreditCard className="w-7 h-7 text-purple-400" />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-muted-foreground">Deuda total pendiente</p>
-              <p className="text-3xl font-bold font-mono text-debt">
+              <p className="text-sm text-gray-400">Deuda total pendiente</p>
+              <p className="text-3xl font-bold font-mono text-purple-400">
                 {formatCurrency(totalDebt)}
               </p>
               {totalOriginal > 0 && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-gray-500 mt-1">
                   Has pagado el {calculateProgress(totalOriginal, totalDebt)}% del total original
                 </p>
               )}
             </div>
           </div>
           {totalOriginal > 0 && (
-            <Progress 
-              value={calculateProgress(totalOriginal, totalDebt)} 
-              className="mt-4 h-3"
-            />
+            <div className="mt-4 h-3 bg-[#2a3444] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-500"
+                style={{ width: `${calculateProgress(totalOriginal, totalDebt)}%` }}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
@@ -290,16 +295,16 @@ const Debts = () => {
           debts.map((debt) => {
             const progress = calculateProgress(debt.total_amount, debt.current_amount);
             return (
-              <Card key={debt.debt_id} className="card-hover" data-testid={`debt-item-${debt.debt_id}`}>
+              <Card key={debt.debt_id} className="card-hover bg-[#1a2332] border-[#2a3444]" data-testid={`debt-item-${debt.debt_id}`}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-debt/30 flex items-center justify-center">
-                        <TrendingDown className="w-6 h-6 text-debt" />
+                      <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <TrendingDown className="w-6 h-6 text-purple-400" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">{debt.name}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <h3 className="font-semibold text-lg text-white">{debt.name}</h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
                           {debt.interest_rate > 0 && (
                             <span>{debt.interest_rate}% interés</span>
                           )}
@@ -314,7 +319,7 @@ const Debts = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-full"
+                        className="rounded-md border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
                         onClick={() => {
                           setSelectedDebt(debt);
                           setPaymentDialogOpen(true);
@@ -328,25 +333,31 @@ const Debts = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                         onClick={() => handleDelete(debt.debt_id)}
                         data-testid={`delete-debt-${debt.debt_id}`}
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progreso de pago</span>
-                      <span className="font-mono">{progress}%</span>
+                      <span className="text-gray-500">Progreso de pago</span>
+                      <span className="font-mono text-white">{progress}%</span>
                     </div>
-                    <Progress value={progress} className="h-3" />
+                    <div className="h-3 bg-[#2a3444] rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
+                      <span className="text-gray-500">
                         Pagado: {formatCurrency(debt.total_amount - debt.current_amount)}
                       </span>
-                      <span className="font-mono font-semibold text-debt">
+                      <span className="font-mono font-semibold text-purple-400">
                         Pendiente: {formatCurrency(debt.current_amount)}
                       </span>
                     </div>
@@ -356,16 +367,16 @@ const Debts = () => {
             );
           })
         ) : (
-          <Card>
+          <Card className="bg-[#1a2332] border-[#2a3444]">
             <CardContent className="py-12 text-center">
-              <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
-              <p className="text-muted-foreground">No tienes deudas registradas</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50 text-gray-600" />
+              <p className="text-gray-500">No tienes deudas registradas</p>
+              <p className="text-sm text-gray-600 mt-1">
                 ¡Excelente! Mantén tus finanzas saludables
               </p>
               <Button 
                 variant="link" 
-                className="mt-2"
+                className="mt-2 text-[#D4AF37]"
                 onClick={() => setDialogOpen(true)}
               >
                 Registrar una deuda
@@ -377,29 +388,29 @@ const Debts = () => {
 
       {/* Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Epilogue, sans-serif' }}>
+            <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
               Registrar pago
             </DialogTitle>
           </DialogHeader>
           {selectedDebt && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-muted/50">
-                <p className="font-medium">{selectedDebt.name}</p>
-                <p className="text-sm text-muted-foreground">
+              <div className="p-4 rounded-lg bg-[#141b2d] border border-[#2a3444]">
+                <p className="font-medium text-white">{selectedDebt.name}</p>
+                <p className="text-sm text-gray-500">
                   Pendiente: {formatCurrency(selectedDebt.current_amount)}
                 </p>
               </div>
               
               <div className="space-y-2">
-                <Label>Monto a pagar (COP)</Label>
+                <Label className="text-gray-300">Monto a pagar (COP)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <Input
                     type="number"
                     placeholder="0"
-                    className="pl-8 font-mono"
+                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     max={selectedDebt.current_amount}
@@ -410,7 +421,7 @@ const Debts = () => {
 
               <Button 
                 onClick={handlePayment} 
-                className="w-full rounded-full btn-press"
+                className="w-full btn-gold rounded-md"
                 data-testid="confirm-payment-btn"
               >
                 Confirmar pago

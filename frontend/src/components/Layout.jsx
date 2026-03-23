@@ -12,7 +12,6 @@ import {
 } from "./ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { 
-  Wallet, 
   LayoutDashboard, 
   ArrowLeftRight, 
   CreditCard, 
@@ -60,32 +59,30 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background noise-bg">
-      {/* Header de navegacion */}
-      <header className="sticky top-0 z-50 glass border-b border-border/50">
+    <div className="min-h-screen bg-[#141b2d]">
+      {/* Navigation Header */}
+      <header className="sticky top-0 z-50 bg-[#141b2d]/90 backdrop-blur-md border-b border-[#2a3444]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <Wallet className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="font-semibold text-lg hidden sm:block" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-                DailyFinance
+            <Link to="/dashboard" className="flex items-center gap-3">
+              <span className="text-[#D4AF37] text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>
+                LD
               </span>
+              <span className="text-white font-medium hidden sm:block">Finance</span>
             </Link>
 
-            {/* Navigation principal */}
+            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
               {navigation.map((item) => (
                 <Link key={item.name} to={item.href}>
                   <Button
-                    variant={isActive(item.href) ? "secondary" : "ghost"}
+                    variant="ghost"
                     size="sm"
-                    className={`rounded-full transition-all ${
+                    className={`rounded-md transition-all ${
                       isActive(item.href) 
-                        ? "bg-primary/10 text-primary" 
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-[#D4AF37]/10 text-[#D4AF37]" 
+                        : "text-gray-400 hover:text-white hover:bg-[#1a2332]"
                     }`}
                   >
                     <item.icon className="w-4 h-4 mr-2" />
@@ -95,43 +92,43 @@ const Layout = ({ children }) => {
               ))}
             </nav>
 
-            {/* Menu de usuario & Mobile Toggle */}
+            {/* User Menu & Mobile Toggle */}
             <div className="flex items-center gap-2">
               {/* User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-[#2a3444]">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user?.picture} alt={user?.name} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      <AvatarFallback className="bg-[#D4AF37] text-[#141b2d] text-xs font-semibold">
                         {getInitials(user?.name)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end">
+                <DropdownMenuContent className="w-56 bg-[#1a2332] border-[#2a3444]" align="end">
                   <div className="flex items-center gap-2 p-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user?.picture} alt={user?.name} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      <AvatarFallback className="bg-[#D4AF37] text-[#141b2d] text-xs font-semibold">
                         {getInitials(user?.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <p className="text-sm font-medium">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                      <p className="text-sm font-medium text-white">{user?.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuSeparator className="bg-[#2a3444]" />
+                  <DropdownMenuItem asChild className="text-gray-300 focus:text-white focus:bg-[#2a3444]">
                     <Link to="/profile" className="cursor-pointer">
                       <User className="w-4 h-4 mr-2" />
                       Mi Perfil
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-[#2a3444]" />
                   <DropdownMenuItem 
-                    className="text-destructive cursor-pointer"
+                    className="text-red-400 focus:text-red-300 focus:bg-[#2a3444] cursor-pointer"
                     onClick={handleLogout}
                   >
                     <LogOut className="w-4 h-4 mr-2" />
@@ -143,11 +140,11 @@ const Layout = ({ children }) => {
               {/* Mobile Menu Toggle */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild className="md:hidden">
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
                     <Menu className="w-5 h-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72">
+                <SheetContent side="right" className="w-72 bg-[#1a2332] border-[#2a3444]">
                   <div className="flex flex-col gap-2 mt-8">
                     {navigation.map((item) => (
                       <Link 
@@ -156,11 +153,11 @@ const Layout = ({ children }) => {
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         <Button
-                          variant={isActive(item.href) ? "secondary" : "ghost"}
-                          className={`w-full justify-start rounded-xl ${
+                          variant="ghost"
+                          className={`w-full justify-start rounded-md ${
                             isActive(item.href) 
-                              ? "bg-primary/10 text-primary" 
-                              : "text-muted-foreground"
+                              ? "bg-[#D4AF37]/10 text-[#D4AF37]" 
+                              : "text-gray-400 hover:text-white hover:bg-[#2a3444]"
                           }`}
                         >
                           <item.icon className="w-5 h-5 mr-3" />
@@ -168,16 +165,16 @@ const Layout = ({ children }) => {
                         </Button>
                       </Link>
                     ))}
-                    <div className="border-t border-border my-4" />
+                    <div className="border-t border-[#2a3444] my-4" />
                     <Link to="/profile" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start rounded-xl">
+                      <Button variant="ghost" className="w-full justify-start rounded-md text-gray-400 hover:text-white hover:bg-[#2a3444]">
                         <User className="w-5 h-5 mr-3" />
                         Mi Perfil
                       </Button>
                     </Link>
                     <Button 
                       variant="ghost" 
-                      className="w-full justify-start rounded-xl text-destructive"
+                      className="w-full justify-start rounded-md text-red-400 hover:text-red-300 hover:bg-[#2a3444]"
                       onClick={handleLogout}
                     >
                       <LogOut className="w-5 h-5 mr-3" />
@@ -197,18 +194,14 @@ const Layout = ({ children }) => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 mt-12">
+      <footer className="border-t border-[#2a3444] mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                <Wallet className="w-3 h-3 text-primary-foreground" />
-              </div>
-              <span className="text-sm text-muted-foreground">
-                DailyFinance © 2026
-              </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[#D4AF37] text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>LD</span>
+              <span className="text-gray-500 text-sm">Finance © 2026</span>
             </div>
-            <p className="text-xs text-muted-foreground text-center sm:text-right">
+            <p className="text-xs text-gray-500 text-center sm:text-right">
               Tu aliado en finanzas personales
             </p>
           </div>

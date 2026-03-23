@@ -8,7 +8,6 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { 
-  Wallet, 
   ChevronRight, 
   ChevronLeft,
   DollarSign,
@@ -107,22 +106,20 @@ const Survey = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background noise-bg py-12 px-4">
+    <div className="min-h-screen bg-[#141b2d] py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-xl" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-              DailyFinance
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="text-[#D4AF37] text-3xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>
+              LD
             </span>
+            <span className="text-white font-medium text-xl">Finance</span>
           </div>
-          <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Epilogue, sans-serif' }}>
-            Perfil Financiero
+          <h1 className="text-2xl font-bold mb-2 text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Perfil <span className="gold-text">Financiero</span>
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-gray-400">
             Cuéntanos sobre tu situación financiera para personalizar tu experiencia.
           </p>
         </div>
@@ -130,12 +127,12 @@ const Survey = () => {
         {/* Progress */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">Paso {step} de {totalSteps}</span>
-            <span className="text-sm font-medium">{Math.round((step / totalSteps) * 100)}%</span>
+            <span className="text-sm text-gray-500">Paso {step} de {totalSteps}</span>
+            <span className="text-sm font-medium text-[#D4AF37]">{Math.round((step / totalSteps) * 100)}%</span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden">
             <div 
-              className="h-full bg-primary transition-all duration-500 ease-out"
+              className="h-full bg-gradient-to-r from-[#D4AF37] to-[#F4D03F] transition-all duration-500 ease-out"
               style={{ width: `${(step / totalSteps) * 100}%` }}
             />
           </div>
@@ -143,53 +140,53 @@ const Survey = () => {
 
         {/* Step 1: Income & Expenses */}
         {step === 1 && (
-          <Card className="animate-fadeIn" data-testid="survey-step-1">
+          <Card className="animate-fadeIn bg-[#1a2332] border-[#2a3444]" data-testid="survey-step-1">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-income flex items-center justify-center">
-                  <DollarSign className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-green-400" />
                 </div>
                 <div>
-                  <CardTitle>Ingresos y Gastos</CardTitle>
-                  <CardDescription>Tu flujo de dinero mensual</CardDescription>
+                  <CardTitle className="text-white">Ingresos y Gastos</CardTitle>
+                  <CardDescription className="text-gray-400">Tu flujo de dinero mensual</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="monthly_income">Ingreso mensual aproximado (COP)</Label>
+                <Label className="text-gray-300" htmlFor="monthly_income">Ingreso mensual aproximado (COP)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <Input
                     id="monthly_income"
                     type="number"
                     placeholder="0"
-                    className="pl-8 font-mono"
+                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.monthly_income}
                     onChange={(e) => handleInputChange("monthly_income", e.target.value)}
                     data-testid="input-monthly-income"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Incluye mesada, trabajo, becas, etc.
+                <p className="text-xs text-gray-500">
+                  Incluye salario, mesada, becas, etc.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="monthly_expenses">Gasto mensual aproximado (COP)</Label>
+                <Label className="text-gray-300" htmlFor="monthly_expenses">Gasto mensual aproximado (COP)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <Input
                     id="monthly_expenses"
                     type="number"
                     placeholder="0"
-                    className="pl-8 font-mono"
+                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.monthly_expenses}
                     onChange={(e) => handleInputChange("monthly_expenses", e.target.value)}
                     data-testid="input-monthly-expenses"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-500">
                   Transporte, alimentación, ocio, etc.
                 </p>
               </div>
@@ -199,28 +196,28 @@ const Survey = () => {
 
         {/* Step 2: Savings & Debt */}
         {step === 2 && (
-          <Card className="animate-fadeIn" data-testid="survey-step-2">
+          <Card className="animate-fadeIn bg-[#1a2332] border-[#2a3444]" data-testid="survey-step-2">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-savings flex items-center justify-center">
-                  <TrendingDown className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center">
+                  <TrendingDown className="w-5 h-5 text-[#D4AF37]" />
                 </div>
                 <div>
-                  <CardTitle>Ahorros y Deudas</CardTitle>
-                  <CardDescription>Tu patrimonio actual</CardDescription>
+                  <CardTitle className="text-white">Ahorros y Deudas</CardTitle>
+                  <CardDescription className="text-gray-400">Tu patrimonio actual</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="current_savings">Ahorros actuales (COP)</Label>
+                <Label className="text-gray-300" htmlFor="current_savings">Ahorros actuales (COP)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <Input
                     id="current_savings"
                     type="number"
                     placeholder="0"
-                    className="pl-8 font-mono"
+                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.current_savings}
                     onChange={(e) => handleInputChange("current_savings", e.target.value)}
                     data-testid="input-current-savings"
@@ -229,20 +226,20 @@ const Survey = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_debt">Deuda total actual (COP)</Label>
+                <Label className="text-gray-300" htmlFor="total_debt">Deuda total actual (COP)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <Input
                     id="total_debt"
                     type="number"
                     placeholder="0"
-                    className="pl-8 font-mono"
+                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.total_debt}
                     onChange={(e) => handleInputChange("total_debt", e.target.value)}
                     data-testid="input-total-debt"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-500">
                   Préstamos, tarjetas de crédito, deudas con amigos/familia, etc.
                 </p>
               </div>
@@ -252,20 +249,20 @@ const Survey = () => {
 
         {/* Step 3: Financial Knowledge */}
         {step === 3 && (
-          <Card className="animate-fadeIn" data-testid="survey-step-3">
+          <Card className="animate-fadeIn bg-[#1a2332] border-[#2a3444]" data-testid="survey-step-3">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-debt flex items-center justify-center">
-                  <HelpCircle className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <HelpCircle className="w-5 h-5 text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle>Conocimiento Financiero</CardTitle>
-                  <CardDescription>Autoevaluación de tu nivel</CardDescription>
+                  <CardTitle className="text-white">Conocimiento Financiero</CardTitle>
+                  <CardDescription className="text-gray-400">Autoevaluación de tu nivel</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <Label className="mb-4 block">¿Cómo calificarías tu conocimiento sobre finanzas personales?</Label>
+              <Label className="mb-4 block text-gray-300">¿Cómo calificarías tu conocimiento sobre finanzas personales?</Label>
               <RadioGroup
                 value={formData.financial_knowledge.toString()}
                 onValueChange={(value) => handleInputChange("financial_knowledge", parseInt(value))}
@@ -274,21 +271,21 @@ const Survey = () => {
                 {knowledgeLevels.map((level) => (
                   <div 
                     key={level.value}
-                    className={`flex items-center space-x-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                    className={`flex items-center space-x-3 p-4 rounded-lg border transition-all cursor-pointer ${
                       formData.financial_knowledge === level.value 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:border-primary/50"
+                        ? "border-[#D4AF37] bg-[#D4AF37]/10" 
+                        : "border-[#2a3444] bg-[#141b2d] hover:border-[#D4AF37]/50"
                     }`}
                     onClick={() => handleInputChange("financial_knowledge", level.value)}
                   >
-                    <RadioGroupItem value={level.value.toString()} id={`level-${level.value}`} />
+                    <RadioGroupItem value={level.value.toString()} id={`level-${level.value}`} className="border-[#D4AF37] text-[#D4AF37]" />
                     <div className="flex-1">
-                      <Label htmlFor={`level-${level.value}`} className="font-medium cursor-pointer">
+                      <Label htmlFor={`level-${level.value}`} className="font-medium cursor-pointer text-white">
                         {level.label}
                       </Label>
-                      <p className="text-sm text-muted-foreground">{level.description}</p>
+                      <p className="text-sm text-gray-500">{level.description}</p>
                     </div>
-                    <span className="text-2xl font-bold text-primary font-mono">{level.value}</span>
+                    <span className="text-2xl font-bold text-[#D4AF37] font-mono">{level.value}</span>
                   </div>
                 ))}
               </RadioGroup>
@@ -298,21 +295,21 @@ const Survey = () => {
 
         {/* Step 4: Goals & Challenges */}
         {step === 4 && (
-          <Card className="animate-fadeIn" data-testid="survey-step-4">
+          <Card className="animate-fadeIn bg-[#1a2332] border-[#2a3444]" data-testid="survey-step-4">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-[#D4AF37]" />
                 </div>
                 <div>
-                  <CardTitle>Objetivos y Retos</CardTitle>
-                  <CardDescription>¿Qué quieres lograr?</CardDescription>
+                  <CardTitle className="text-white">Objetivos y Retos</CardTitle>
+                  <CardDescription className="text-gray-400">¿Qué quieres lograr?</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
-                <Label>¿Cuál es tu principal objetivo financiero?</Label>
+                <Label className="text-gray-300">¿Cuál es tu principal objetivo financiero?</Label>
                 <RadioGroup
                   value={formData.main_financial_goal}
                   onValueChange={(value) => handleInputChange("main_financial_goal", value)}
@@ -321,22 +318,22 @@ const Survey = () => {
                   {financialGoals.map((goal) => (
                     <div 
                       key={goal}
-                      className={`flex items-center space-x-2 p-3 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer ${
                         formData.main_financial_goal === goal 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
+                          ? "border-[#D4AF37] bg-[#D4AF37]/10" 
+                          : "border-[#2a3444] bg-[#141b2d] hover:border-[#D4AF37]/50"
                       }`}
                       onClick={() => handleInputChange("main_financial_goal", goal)}
                     >
-                      <RadioGroupItem value={goal} id={`goal-${goal}`} />
-                      <Label htmlFor={`goal-${goal}`} className="text-sm cursor-pointer">{goal}</Label>
+                      <RadioGroupItem value={goal} id={`goal-${goal}`} className="border-[#D4AF37] text-[#D4AF37]" />
+                      <Label htmlFor={`goal-${goal}`} className="text-sm cursor-pointer text-gray-300">{goal}</Label>
                     </div>
                   ))}
                 </RadioGroup>
               </div>
 
               <div className="space-y-3">
-                <Label>¿Cuál es tu mayor reto financiero actualmente?</Label>
+                <Label className="text-gray-300">¿Cuál es tu mayor reto financiero actualmente?</Label>
                 <RadioGroup
                   value={formData.biggest_challenge}
                   onValueChange={(value) => handleInputChange("biggest_challenge", value)}
@@ -345,15 +342,15 @@ const Survey = () => {
                   {financialChallenges.map((challenge) => (
                     <div 
                       key={challenge}
-                      className={`flex items-center space-x-2 p-3 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer ${
                         formData.biggest_challenge === challenge 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
+                          ? "border-[#D4AF37] bg-[#D4AF37]/10" 
+                          : "border-[#2a3444] bg-[#141b2d] hover:border-[#D4AF37]/50"
                       }`}
                       onClick={() => handleInputChange("biggest_challenge", challenge)}
                     >
-                      <RadioGroupItem value={challenge} id={`challenge-${challenge}`} />
-                      <Label htmlFor={`challenge-${challenge}`} className="text-sm cursor-pointer">{challenge}</Label>
+                      <RadioGroupItem value={challenge} id={`challenge-${challenge}`} className="border-[#D4AF37] text-[#D4AF37]" />
+                      <Label htmlFor={`challenge-${challenge}`} className="text-sm cursor-pointer text-gray-300">{challenge}</Label>
                     </div>
                   ))}
                 </RadioGroup>
@@ -368,7 +365,7 @@ const Survey = () => {
             <Button 
               variant="outline" 
               onClick={() => setStep(step - 1)}
-              className="rounded-full"
+              className="rounded-md border-[#2a3444] text-gray-300 hover:bg-[#2a3444] hover:text-white"
             >
               <ChevronLeft className="w-4 h-4 mr-2" />
               Anterior
@@ -381,7 +378,7 @@ const Survey = () => {
             <Button 
               onClick={() => setStep(step + 1)}
               disabled={!canProceed()}
-              className="rounded-full btn-press"
+              className="btn-gold rounded-md"
               data-testid="survey-next-btn"
             >
               Siguiente
@@ -391,10 +388,10 @@ const Survey = () => {
             <Button 
               onClick={handleSubmit}
               disabled={!canProceed() || loading}
-              className="rounded-full btn-press"
+              className="btn-gold rounded-md"
               data-testid="survey-submit-btn"
             >
-              {loading ? "Guardando..." : "Completar encuesta"}
+              {loading ? "Guardando..." : "Completar perfil"}
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           )}

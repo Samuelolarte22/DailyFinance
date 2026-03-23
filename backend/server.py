@@ -512,6 +512,7 @@ async def get_dashboard(request: Request):
         "total_debt": total_debt,
         "total_savings": total_savings,
         "recent_transactions": recent_transactions,
+        "all_transactions": transactions,
         "debts_count": len(debts),
         "savings_goals_count": len(savings)
     }
