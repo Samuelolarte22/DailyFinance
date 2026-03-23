@@ -16,6 +16,7 @@ import {
   Calendar
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import AdvisorChat from "../components/AdvisorChat";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -369,6 +370,9 @@ const Dashboard = () => {
           </Card>
         </Link>
       </div>
+
+      {/* Advisor Chat */}
+      <AdvisorChat selectedMonth={selectedMonth} />
     </div>
   );
 };

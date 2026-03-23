@@ -22,6 +22,7 @@ import {
   Menu,
   ShieldCheck
 } from "lucide-react";
+import AnimatedLogo from "./AnimatedLogo";
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -66,10 +67,7 @@ const Layout = ({ children }) => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center gap-3">
-              <span className="text-[#D4AF37] text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>
-                LD
-              </span>
-              <span className="text-white font-medium hidden sm:block">Finance</span>
+              <AnimatedLogo size="small" />
             </Link>
 
             {/* Desktop Navigation */}

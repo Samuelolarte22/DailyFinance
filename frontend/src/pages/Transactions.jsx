@@ -53,18 +53,28 @@ const Transactions = () => {
     date: new Date()
   });
 
-  const incomeCategories = [
+  const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"
-  ];
-
-  const expenseCategories = [
-    "Alimentación", "Transporte", "Entretenimiento", "Educación", "Salud", 
-    "Ropa", "Tecnología", "Servicios", "Suscripciones", "Otro gasto"
-  ];
+  ]);
+  const [expenseCategories, setExpenseCategories] = useState([
+    "Alimentacion", "Transporte", "Entretenimiento", "Educacion", "Salud", 
+    "Ropa", "Tecnologia", "Servicios", "Suscripciones", "Otro gasto"
+  ]);
 
   useEffect(() => {
     fetchTransactions();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${API}/categories`, { withCredentials: true });
+      if (response.data.income) setIncomeCategories(response.data.income);
+      if (response.data.expense) setExpenseCategories(response.data.expense);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {

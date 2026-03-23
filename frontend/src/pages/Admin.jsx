@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "../components/ui/dialog";
 import { 
   Users, 
@@ -50,6 +51,17 @@ const Admin = () => {
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatType, setNewCatType] = useState("expense");
+  const [customCategories, setCustomCategories] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatIsTask, setChatIsTask] = useState(false);
+  const [chatMonth, setChatMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [formData, setFormData] = useState({
     type: "expense",
     category: "",
@@ -57,17 +69,17 @@ const Admin = () => {
     description: ""
   });
 
-  const incomeCategories = [
+  const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Ajuste admin", "Otro ingreso"
-  ];
-
-  const expenseCategories = [
-    "Alimentación", "Transporte", "Entretenimiento", "Educación", "Salud", 
-    "Ropa", "Tecnología", "Servicios", "Ajuste admin", "Otro gasto"
-  ];
+  ]);
+  const [expenseCategories, setExpenseCategories] = useState([
+    "Alimentacion", "Transporte", "Entretenimiento", "Educacion", "Salud", 
+    "Ropa", "Tecnologia", "Servicios", "Ajuste admin", "Otro gasto"
+  ]);
 
   useEffect(() => {
     fetchAdminData();
+    fetchCategories();
   }, []);
 
   const fetchAdminData = async () => {
@@ -88,6 +100,64 @@ const Admin = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${API}/categories`, { withCredentials: true });
+      if (response.data.income) setIncomeCategories(response.data.income);
+      if (response.data.expense) setExpenseCategories(response.data.expense);
+      if (response.data.custom) setCustomCategories(response.data.custom);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) { toast.error("Ingresa un nombre"); return; }
+    try {
+      await axios.post(`${API}/admin/categories`, { name: newCatName, type: newCatType }, { withCredentials: true });
+      toast.success("Categoria creada");
+      setNewCatName("");
+      fetchCategories();
+    } catch (error) {
+      toast.error("Error al crear categoria");
+    }
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    try {
+      await axios.delete(`${API}/admin/categories/${catId}`, { withCredentials: true });
+      toast.success("Categoria eliminada");
+      fetchCategories();
+    } catch (error) {
+      toast.error("Error al eliminar categoria");
+    }
+  };
+
+  const fetchUserChat = async (userId, month) => {
+    try {
+      const response = await axios.get(`${API}/admin/users/${userId}/messages?month=${month}`, { withCredentials: true });
+      setChatMessages(response.data);
+    } catch (error) {
+      console.error("Error fetching chat:", error);
+    }
+  };
+
+  const handleSendAdminMessage = async () => {
+    if (!chatMessage.trim() || !selectedUser) return;
+    try {
+      await axios.post(`${API}/admin/users/${selectedUser}/messages`, {
+        content: chatMessage,
+        is_task: chatIsTask,
+        month: chatMonth
+      }, { withCredentials: true });
+      setChatMessage("");
+      setChatIsTask(false);
+      fetchUserChat(selectedUser, chatMonth);
+    } catch (error) {
+      toast.error("Error al enviar mensaje");
+    }
+  };
+
   const fetchUserDetail = async (userId) => {
     try {
       const response = await axios.get(`${API}/admin/users/${userId}`, {
@@ -95,6 +165,7 @@ const Admin = () => {
       });
       setUserDetail(response.data);
       setSelectedUser(userId);
+      fetchUserChat(userId, chatMonth);
     } catch (error) {
       console.error("Error fetching user detail:", error);
       toast.error("Error al cargar detalles del usuario");
@@ -343,6 +414,68 @@ const Admin = () => {
         </CardContent>
       </Card>
 
+      {/* Category Management */}
+      <Card className="bg-[#1a2332] border-[#2a3444]">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Categorias Personalizadas
+          </CardTitle>
+          <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="btn-gold rounded-md" data-testid="add-category-btn">
+                <Plus className="w-4 h-4 mr-1" /> Agregar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
+              <DialogHeader>
+                <DialogTitle className="text-white">Nueva Categoria</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Nombre</Label>
+                  <Input placeholder="Nombre de la categoria" className="bg-[#141b2d] border-[#2a3444] text-white"
+                    value={newCatName} onChange={(e) => setNewCatName(e.target.value)} data-testid="cat-name-input" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Tipo</Label>
+                  <Select value={newCatType} onValueChange={setNewCatType}>
+                    <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="cat-type-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income">Ingreso</SelectItem>
+                      <SelectItem value="expense">Gasto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full btn-gold rounded-md" onClick={() => { handleAddCategory(); setCategoryDialogOpen(false); }}
+                  data-testid="save-category-btn">
+                  Guardar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {customCategories.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {customCategories.map(cat => (
+                <div key={cat.category_id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141b2d] border border-[#2a3444] text-sm">
+                  <span className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className="text-gray-300">{cat.name}</span>
+                  <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-gray-600 hover:text-red-400 ml-1"
+                    data-testid={`delete-cat-${cat.category_id}`}>
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No hay categorias personalizadas. Las categorias predeterminadas estan activas.</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Users List & Detail */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Users List */}
@@ -471,6 +604,7 @@ const Admin = () => {
                   <TabsList className="mb-4">
                     <TabsTrigger value="summary">Resumen</TabsTrigger>
                     <TabsTrigger value="transactions">Transacciones</TabsTrigger>
+                    <TabsTrigger value="chat">Chat</TabsTrigger>
                     <TabsTrigger value="survey">Encuesta</TabsTrigger>
                   </TabsList>
 
@@ -603,6 +737,53 @@ const Admin = () => {
                         El usuario no ha completado la encuesta diagnóstica
                       </p>
                     )}
+                  </TabsContent>
+
+                  <TabsContent value="chat">
+                    <div className="space-y-4">
+                      {/* Month selector for chat */}
+                      <div className="flex items-center gap-2">
+                        <Input type="month" value={chatMonth} 
+                          onChange={(e) => { setChatMonth(e.target.value); if (selectedUser) fetchUserChat(selectedUser, e.target.value); }}
+                          className="bg-[#141b2d] border-[#2a3444] text-white w-48" />
+                      </div>
+                      {/* Messages */}
+                      <div className="max-h-[300px] overflow-y-auto space-y-2">
+                        {chatMessages.length > 0 ? chatMessages.map(msg => (
+                          <div key={msg.message_id} className={`p-3 rounded-lg ${
+                            msg.sender_role === 'admin' ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'bg-[#141b2d] border border-[#2a3444]'
+                          }`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-xs font-medium ${msg.sender_role === 'admin' ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
+                                {msg.sender_role === 'admin' ? 'Asesor' : 'Usuario'}
+                              </span>
+                              {msg.is_task && <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#D4AF37]/20 text-[#D4AF37]">Tarea</span>}
+                              {msg.is_completed && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">Completada</span>}
+                            </div>
+                            <p className={`text-sm ${msg.is_completed ? 'line-through text-gray-600' : 'text-gray-300'}`}>{msg.content}</p>
+                          </div>
+                        )) : (
+                          <p className="text-center text-gray-500 py-8">No hay mensajes este mes</p>
+                        )}
+                      </div>
+                      {/* Send message */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-[#2a3444]">
+                        <button onClick={() => setChatIsTask(!chatIsTask)} 
+                          className={`p-2 rounded-md shrink-0 ${chatIsTask ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-500'}`}
+                          data-testid="admin-toggle-task">
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <Input placeholder={chatIsTask ? "Asignar tarea..." : "Mensaje al usuario..."}
+                          className="flex-1 bg-[#141b2d] border-[#2a3444] text-white text-sm"
+                          value={chatMessage} onChange={(e) => setChatMessage(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSendAdminMessage(); }}
+                          data-testid="admin-chat-input" />
+                        <Button size="sm" className="btn-gold shrink-0" onClick={handleSendAdminMessage}
+                          disabled={!chatMessage.trim()} data-testid="admin-send-msg">
+                          Enviar
+                        </Button>
+                      </div>
+                    </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>

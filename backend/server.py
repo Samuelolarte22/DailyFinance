@@ -76,6 +76,7 @@ class Debt(BaseModel):
     total_amount: float
     current_amount: float
     interest_rate: Optional[float] = 0
+    min_payment: Optional[float] = 0
     due_date: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -84,6 +85,7 @@ class DebtCreate(BaseModel):
     total_amount: float
     current_amount: float
     interest_rate: Optional[float] = 0
+    min_payment: Optional[float] = 0
     due_date: Optional[str] = None
 
 class DebtPayment(BaseModel):
@@ -127,6 +129,23 @@ class DiagnosticSurveyCreate(BaseModel):
     financial_knowledge: int
     main_financial_goal: str
     biggest_challenge: str
+
+# ============== CATEGORY MODELS ==============
+
+class CategoryCreate(BaseModel):
+    name: str
+    type: str  # "income" or "expense"
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+
+# ============== ADVISOR MESSAGE MODELS ==============
+
+class MessageCreate(BaseModel):
+    content: str
+    is_task: Optional[bool] = False
+    month: Optional[str] = None  # YYYY-MM
 
 # ============== AUTH HELPERS basado en framework ==============
 
@@ -707,6 +726,8 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.savings_goals.delete_many({"user_id": user_id})
     await db.surveys.delete_many({"user_id": user_id})
     await db.user_sessions.delete_many({"user_id": user_id})
+    await db.categories.delete_many({"user_id": user_id})
+    await db.advisor_messages.delete_many({"user_id": user_id})
     await db.users.delete_one({"user_id": user_id})
     
     return {
@@ -752,6 +773,275 @@ async def admin_get_global_summary(request: Request):
             "avg_transactions_per_user": round(len(transactions) / max(len(users), 1), 1)
         }
     }
+
+# ============== DEBT SNOWBALL ENDPOINT ==============
+
+@api_router.get("/debts/snowball")
+async def get_debt_snowball(request: Request):
+    """Calculate snowball debt repayment schedule"""
+    user = await get_current_user(request)
+    debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    
+    if not debts:
+        return {"debts": [], "schedule": [], "total_debt": 0, "total_min_payment": 0, "months_to_payoff": 0}
+    
+    # Sort by current_amount ascending (snowball: smallest first)
+    active_debts = [d for d in debts if d.get("current_amount", 0) > 0]
+    active_debts.sort(key=lambda d: d["current_amount"])
+    
+    total_debt = sum(d["current_amount"] for d in active_debts)
+    total_min_payment = sum(d.get("min_payment", 0) for d in active_debts)
+    
+    # Build month-by-month schedule (max 120 months = 10 years)
+    schedule = []
+    balances = {d["debt_id"]: d["current_amount"] for d in active_debts}
+    min_payments = {d["debt_id"]: d.get("min_payment", 0) for d in active_debts}
+    rates = {d["debt_id"]: d.get("interest_rate", 0) / 100 / 12 for d in active_debts}  # monthly rate
+    
+    for month_num in range(1, 121):
+        month_data = {"month": month_num}
+        all_paid = True
+        
+        for d in active_debts:
+            did = d["debt_id"]
+            bal = balances[did]
+            
+            if bal <= 0:
+                month_data[did] = {"payment": 0, "balance": 0}
+                continue
+            
+            all_paid = False
+            # Add interest
+            interest = bal * rates[did]
+            bal += interest
+            
+            # Calculate payment
+            payment = min(min_payments[did], bal)
+            bal = max(0, bal - payment)
+            
+            # If this debt is paid off, redistribute its min_payment to next smallest
+            if bal <= 0 and payment > 0:
+                remaining = payment - (balances[did] + interest)
+                if remaining < 0:
+                    remaining = 0
+                # Find next unpaid debt to add the freed payment
+                for nd in active_debts:
+                    if nd["debt_id"] != did and balances.get(nd["debt_id"], 0) > 0:
+                        min_payments[nd["debt_id"]] += min_payments[did]
+                        break
+                min_payments[did] = 0
+            
+            balances[did] = bal
+            month_data[did] = {"payment": round(payment), "balance": round(bal)}
+        
+        schedule.append(month_data)
+        
+        if all_paid:
+            break
+    
+    return {
+        "debts": [{
+            "debt_id": d["debt_id"],
+            "name": d["name"],
+            "balance": d["current_amount"],
+            "min_payment": d.get("min_payment", 0),
+            "interest_rate": d.get("interest_rate", 0)
+        } for d in active_debts],
+        "schedule": schedule,
+        "total_debt": round(total_debt),
+        "total_min_payment": round(total_min_payment),
+        "months_to_payoff": len(schedule)
+    }
+
+# ============== CATEGORY ENDPOINTS ==============
+
+DEFAULT_INCOME_CATEGORIES = ["Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"]
+DEFAULT_EXPENSE_CATEGORIES = ["Alimentacion", "Transporte", "Entretenimiento", "Educacion", "Salud", "Ropa", "Tecnologia", "Servicios", "Otro gasto"]
+
+@api_router.get("/categories")
+async def get_categories(request: Request):
+    """Get all categories for user (defaults + custom global + custom per-user)"""
+    user = await get_current_user(request)
+    
+    # Fetch custom categories (global ones + user-specific ones)
+    custom_cats = await db.categories.find(
+        {"$or": [{"user_id": None}, {"user_id": user["user_id"]}]},
+        {"_id": 0}
+    ).to_list(200)
+    
+    # Build combined lists
+    income_cats = list(DEFAULT_INCOME_CATEGORIES)
+    expense_cats = list(DEFAULT_EXPENSE_CATEGORIES)
+    
+    for cat in custom_cats:
+        if cat["type"] == "income" and cat["name"] not in income_cats:
+            income_cats.append(cat["name"])
+        elif cat["type"] == "expense" and cat["name"] not in expense_cats:
+            expense_cats.append(cat["name"])
+    
+    return {
+        "income": income_cats,
+        "expense": expense_cats,
+        "custom": custom_cats
+    }
+
+@api_router.post("/admin/categories")
+async def admin_create_category(cat_data: CategoryCreate, request: Request):
+    """Admin creates a global category"""
+    await get_admin_user(request)
+    
+    cat_id = f"cat_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "category_id": cat_id,
+        "name": cat_data.name,
+        "type": cat_data.type,
+        "user_id": None,  # global
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.categories.insert_one(doc)
+    return {"message": "Categoria creada", "category_id": cat_id}
+
+@api_router.post("/admin/users/{user_id}/categories")
+async def admin_create_user_category(user_id: str, cat_data: CategoryCreate, request: Request):
+    """Admin creates a category for a specific user"""
+    await get_admin_user(request)
+    
+    cat_id = f"cat_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "category_id": cat_id,
+        "name": cat_data.name,
+        "type": cat_data.type,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.categories.insert_one(doc)
+    return {"message": "Categoria creada para usuario", "category_id": cat_id}
+
+@api_router.put("/admin/categories/{category_id}")
+async def admin_update_category(category_id: str, cat_data: CategoryUpdate, request: Request):
+    """Admin updates a category"""
+    await get_admin_user(request)
+    
+    update_fields = {k: v for k, v in cat_data.model_dump().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    result = await db.categories.update_one(
+        {"category_id": category_id},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Categoria no encontrada")
+    return {"message": "Categoria actualizada"}
+
+@api_router.delete("/admin/categories/{category_id}")
+async def admin_delete_category(category_id: str, request: Request):
+    """Admin deletes a category"""
+    await get_admin_user(request)
+    
+    result = await db.categories.delete_one({"category_id": category_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Categoria no encontrada")
+    return {"message": "Categoria eliminada"}
+
+# ============== ADVISOR MESSAGES ENDPOINTS ==============
+
+@api_router.get("/messages")
+async def get_messages(request: Request, month: Optional[str] = None):
+    """Get messages for current user for a specific month"""
+    user = await get_current_user(request)
+    
+    if not month:
+        now = datetime.now(timezone.utc)
+        month = f"{now.year}-{str(now.month).zfill(2)}"
+    
+    messages = await db.advisor_messages.find(
+        {"user_id": user["user_id"], "month": month},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(500)
+    
+    return messages
+
+@api_router.post("/messages")
+async def create_message(msg_data: MessageCreate, request: Request):
+    """User sends a message to advisor"""
+    user = await get_current_user(request)
+    
+    now = datetime.now(timezone.utc)
+    month = msg_data.month or f"{now.year}-{str(now.month).zfill(2)}"
+    
+    doc = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Usuario"),
+        "sender_role": "user",
+        "content": msg_data.content,
+        "is_task": msg_data.is_task,
+        "is_completed": False,
+        "month": month,
+        "created_at": now.isoformat()
+    }
+    await db.advisor_messages.insert_one(doc)
+    return {"message": "Mensaje enviado", "message_id": doc["message_id"]}
+
+@api_router.put("/messages/{message_id}/complete")
+async def toggle_message_complete(message_id: str, request: Request):
+    """Toggle task completion status"""
+    user = await get_current_user(request)
+    
+    msg = await db.advisor_messages.find_one(
+        {"message_id": message_id, "user_id": user["user_id"]},
+        {"_id": 0}
+    )
+    if not msg:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado")
+    
+    new_status = not msg.get("is_completed", False)
+    await db.advisor_messages.update_one(
+        {"message_id": message_id},
+        {"$set": {"is_completed": new_status}}
+    )
+    return {"message": "Estado actualizado", "is_completed": new_status}
+
+@api_router.get("/admin/users/{user_id}/messages")
+async def admin_get_user_messages(user_id: str, request: Request, month: Optional[str] = None):
+    """Admin gets messages for a specific user"""
+    await get_admin_user(request)
+    
+    if not month:
+        now = datetime.now(timezone.utc)
+        month = f"{now.year}-{str(now.month).zfill(2)}"
+    
+    messages = await db.advisor_messages.find(
+        {"user_id": user_id, "month": month},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(500)
+    
+    return messages
+
+@api_router.post("/admin/users/{user_id}/messages")
+async def admin_send_message(user_id: str, msg_data: MessageCreate, request: Request):
+    """Admin sends a message/task to a user"""
+    admin = await get_admin_user(request)
+    
+    now = datetime.now(timezone.utc)
+    month = msg_data.month or f"{now.year}-{str(now.month).zfill(2)}"
+    
+    doc = {
+        "message_id": f"msg_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "sender_id": admin["user_id"],
+        "sender_name": admin.get("name", "Asesor"),
+        "sender_role": "admin",
+        "content": msg_data.content,
+        "is_task": msg_data.is_task,
+        "is_completed": False,
+        "month": month,
+        "created_at": now.isoformat()
+    }
+    await db.advisor_messages.insert_one(doc)
+    return {"message": "Mensaje enviado", "message_id": doc["message_id"]}
 
 # Include router and middleware
 app.include_router(api_router)

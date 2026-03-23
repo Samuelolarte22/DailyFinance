@@ -14,6 +14,7 @@ import {
   LineChart,
   ArrowRight
 } from "lucide-react";
+import AnimatedLogo from "../components/AnimatedLogo";
 
 const Landing = () => {
   const { user, loading } = useAuth();
@@ -71,12 +72,7 @@ const Landing = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#141b2d]/90 backdrop-blur-md border-b border-[#D4AF37]/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="text-[#D4AF37] text-2xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>
-                LD
-              </div>
-              <span className="text-white font-medium text-lg">Finance</span>
-            </div>
+            <AnimatedLogo size="small" />
             <Button 
               onClick={handleLogin}
               className="btn-gold rounded-md px-6"
@@ -96,10 +92,12 @@ const Landing = () => {
 
         <div className="max-w-7xl mx-auto relative">
           <div className="text-center max-w-4xl mx-auto space-y-8 animate-fadeIn">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
-              Bienvenido a{" "}
-              <span className="gold-text">LD Finance</span>
-            </h1>
+            <div className="flex flex-col items-center gap-4">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+                Bienvenido a
+              </h1>
+              <AnimatedLogo size="large" />
+            </div>
             
             <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
               Tu socio estratégico para la gestión de finanzas personales. 
