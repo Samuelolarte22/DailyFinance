@@ -76,6 +76,7 @@ class Debt(BaseModel):
     total_amount: float
     current_amount: float
     interest_rate: Optional[float] = 0
+    num_installments: Optional[int] = 0
     min_payment: Optional[float] = 0
     due_date: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -85,6 +86,7 @@ class DebtCreate(BaseModel):
     total_amount: float
     current_amount: float
     interest_rate: Optional[float] = 0
+    num_installments: Optional[int] = 0
     min_payment: Optional[float] = 0
     due_date: Optional[str] = None
 
@@ -146,6 +148,12 @@ class MessageCreate(BaseModel):
     content: str
     is_task: Optional[bool] = False
     month: Optional[str] = None  # YYYY-MM
+
+# ============== BUDGET MODELS ==============
+
+class BudgetCreate(BaseModel):
+    category: str
+    projected_amount: float
 
 # ============== AUTH HELPERS basado en framework ==============
 
@@ -348,15 +356,31 @@ async def get_debts(request: Request):
 
 @api_router.post("/debts")
 async def create_debt(debt_data: DebtCreate, request: Request):
-    """Create a new debt"""
+    """Create a new debt. If num_installments and interest_rate provided, auto-calculates min_payment."""
     user = await get_current_user(request)
     
-    debt = Debt(user_id=user["user_id"], **debt_data.model_dump())
+    data = debt_data.model_dump()
+    
+    # Auto-calculate min_payment if num_installments provided
+    if data.get("num_installments") and data["num_installments"] > 0 and not data.get("min_payment"):
+        P = data["current_amount"]
+        n = data["num_installments"]
+        annual_rate = data.get("interest_rate", 0)
+        
+        if annual_rate > 0:
+            r = annual_rate / 100 / 12  # monthly rate
+            # PMT formula: P * [r(1+r)^n] / [(1+r)^n - 1]
+            data["min_payment"] = round(P * (r * (1 + r) ** n) / ((1 + r) ** n - 1))
+        else:
+            # No interest: simple division
+            data["min_payment"] = round(P / n)
+    
+    debt = Debt(user_id=user["user_id"], **data)
     doc = debt.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.debts.insert_one(doc)
     
-    return {"message": "Debt created", "debt_id": debt.debt_id}
+    return {"message": "Debt created", "debt_id": debt.debt_id, "min_payment": doc.get("min_payment", 0)}
 
 @api_router.put("/debts/{debt_id}/pay")
 async def pay_debt(debt_id: str, payment: DebtPayment, request: Request):
@@ -728,6 +752,7 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.user_sessions.delete_many({"user_id": user_id})
     await db.categories.delete_many({"user_id": user_id})
     await db.advisor_messages.delete_many({"user_id": user_id})
+    await db.budgets.delete_many({"user_id": user_id})
     await db.users.delete_one({"user_id": user_id})
     
     return {
@@ -773,6 +798,98 @@ async def admin_get_global_summary(request: Request):
             "avg_transactions_per_user": round(len(transactions) / max(len(users), 1), 1)
         }
     }
+
+# ============== BUDGET ENDPOINTS ==============
+
+@api_router.get("/budgets")
+async def get_budgets(request: Request):
+    """Get all budgets for user"""
+    user = await get_current_user(request)
+    budgets = await db.budgets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    return budgets
+
+@api_router.post("/budgets")
+async def upsert_budget(budget_data: BudgetCreate, request: Request):
+    """Create or update a budget for a category"""
+    user = await get_current_user(request)
+    
+    existing = await db.budgets.find_one(
+        {"user_id": user["user_id"], "category": budget_data.category},
+        {"_id": 0}
+    )
+    
+    if existing:
+        await db.budgets.update_one(
+            {"user_id": user["user_id"], "category": budget_data.category},
+            {"$set": {"projected_amount": budget_data.projected_amount}}
+        )
+        return {"message": "Presupuesto actualizado", "budget_id": existing["budget_id"]}
+    
+    budget_id = f"bud_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "budget_id": budget_id,
+        "user_id": user["user_id"],
+        "category": budget_data.category,
+        "projected_amount": budget_data.projected_amount,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.budgets.insert_one(doc)
+    return {"message": "Presupuesto creado", "budget_id": budget_id}
+
+@api_router.delete("/budgets/{budget_id}")
+async def delete_budget(budget_id: str, request: Request):
+    """Delete a budget"""
+    user = await get_current_user(request)
+    result = await db.budgets.delete_one({"budget_id": budget_id, "user_id": user["user_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    return {"message": "Presupuesto eliminado"}
+
+@api_router.get("/budgets/comparison")
+async def get_budget_comparison(request: Request, month: Optional[str] = None):
+    """Get budget vs actual spending for each category in a month"""
+    user = await get_current_user(request)
+    
+    if not month:
+        now = datetime.now(timezone.utc)
+        month = f"{now.year}-{str(now.month).zfill(2)}"
+    
+    # Get budgets
+    budgets = await db.budgets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    budget_map = {b["category"]: b for b in budgets}
+    
+    # Get expense transactions for the month
+    all_txns = await db.transactions.find(
+        {"user_id": user["user_id"], "type": "expense"},
+        {"_id": 0}
+    ).to_list(5000)
+    
+    # Filter by month and group by category
+    category_totals = {}
+    for txn in all_txns:
+        txn_month = txn["date"][:7]
+        if txn_month == month:
+            cat = txn["category"]
+            category_totals[cat] = category_totals.get(cat, 0) + txn["amount"]
+    
+    # Build comparison
+    comparison = []
+    all_categories = set(list(budget_map.keys()) + list(category_totals.keys()))
+    
+    for cat in sorted(all_categories):
+        projected = budget_map.get(cat, {}).get("projected_amount", 0)
+        actual = category_totals.get(cat, 0)
+        budget_id = budget_map.get(cat, {}).get("budget_id")
+        comparison.append({
+            "category": cat,
+            "projected": projected,
+            "actual": round(actual),
+            "difference": round(projected - actual),
+            "over_budget": actual > projected if projected > 0 else False,
+            "budget_id": budget_id
+        })
+    
+    return comparison
 
 # ============== DEBT SNOWBALL ENDPOINT ==============
 

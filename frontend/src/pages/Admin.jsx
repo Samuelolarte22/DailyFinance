@@ -39,6 +39,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import CurrencyInput from "../components/CurrencyInput";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -187,7 +188,7 @@ const Admin = () => {
           user_id: selectedUser,
           type: formData.type,
           category: formData.category,
-          amount: parseFloat(formData.amount),
+          amount: parseInt(formData.amount) || 0,
           description: formData.description || `Registrado por asesor: ${user?.name}`
         },
         { withCredentials: true }
@@ -843,17 +844,12 @@ const Admin = () => {
 
             <div className="space-y-2">
               <Label>Monto (COP)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  className="pl-8 font-mono"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  data-testid="admin-amount-input"
-                />
-              </div>
+              <CurrencyInput
+                className="bg-[#141b2d] border-[#2a3444] text-white"
+                value={formData.amount}
+                onChange={(v) => setFormData({ ...formData, amount: v })}
+                data-testid="admin-amount-input"
+              />
             </div>
 
             <div className="space-y-2">

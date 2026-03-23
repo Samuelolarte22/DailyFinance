@@ -23,6 +23,7 @@ import {
   Info
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import CurrencyInput from "../components/CurrencyInput";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
 } from "recharts";
@@ -43,7 +44,7 @@ const Debts = () => {
     total_amount: "",
     current_amount: "",
     interest_rate: "",
-    min_payment: "",
+    num_installments: "",
     due_date: ""
   });
 
@@ -72,6 +73,19 @@ const Debts = () => {
     }
   };
 
+  // Calculate min payment preview from form data
+  const getCalculatedMinPayment = () => {
+    const P = parseInt(formData.current_amount) || 0;
+    const n = parseInt(formData.num_installments) || 0;
+    const annual = parseFloat(formData.interest_rate) || 0;
+    if (P <= 0 || n <= 0) return 0;
+    if (annual > 0) {
+      const r = annual / 100 / 12;
+      return Math.round(P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
+    }
+    return Math.round(P / n);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.total_amount || !formData.current_amount) {
@@ -81,16 +95,16 @@ const Debts = () => {
     try {
       await axios.post(`${API}/debts`, {
         name: formData.name,
-        total_amount: parseFloat(formData.total_amount),
-        current_amount: parseFloat(formData.current_amount),
+        total_amount: parseInt(formData.total_amount) || 0,
+        current_amount: parseInt(formData.current_amount) || 0,
         interest_rate: formData.interest_rate ? parseFloat(formData.interest_rate) : 0,
-        min_payment: formData.min_payment ? parseFloat(formData.min_payment) : 0,
+        num_installments: formData.num_installments ? parseInt(formData.num_installments) : 0,
         due_date: formData.due_date || null
       }, { withCredentials: true });
 
       toast.success("Deuda registrada");
       setDialogOpen(false);
-      setFormData({ name: "", total_amount: "", current_amount: "", interest_rate: "", min_payment: "", due_date: "" });
+      setFormData({ name: "", total_amount: "", current_amount: "", interest_rate: "", num_installments: "", due_date: "" });
       fetchDebts();
       fetchSnowball();
     } catch (error) {
@@ -99,13 +113,14 @@ const Debts = () => {
   };
 
   const handlePayment = async () => {
-    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+    const amount = parseInt(paymentAmount) || 0;
+    if (amount <= 0) {
       toast.error("Ingresa un monto valido");
       return;
     }
     try {
       await axios.put(`${API}/debts/${selectedDebt.debt_id}/pay`, 
-        { amount: parseFloat(paymentAmount) }, { withCredentials: true });
+        { amount }, { withCredentials: true });
       toast.success("Pago registrado");
       setPaymentDialogOpen(false);
       setPaymentAmount("");
@@ -187,41 +202,41 @@ const Debts = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Monto total original</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input type="number" placeholder="0" className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                      value={formData.total_amount} onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
-                      data-testid="total-amount-input" />
-                  </div>
+                  <Label className="text-gray-300">Deuda total original</Label>
+                  <CurrencyInput className="bg-[#141b2d] border-[#2a3444] text-white"
+                    value={formData.total_amount} onChange={(v) => setFormData({ ...formData, total_amount: v })}
+                    data-testid="total-amount-input" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-gray-300">Balance actual</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input type="number" placeholder="0" className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                      value={formData.current_amount} onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
-                      data-testid="current-amount-input" />
-                  </div>
+                  <CurrencyInput className="bg-[#141b2d] border-[#2a3444] text-white"
+                    value={formData.current_amount} onChange={(v) => setFormData({ ...formData, current_amount: v })}
+                    data-testid="current-amount-input" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-300">Pago minimo mensual</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input type="number" placeholder="0" className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                      value={formData.min_payment} onChange={(e) => setFormData({ ...formData, min_payment: e.target.value })}
-                      data-testid="min-payment-input" />
-                  </div>
+                  <Label className="text-gray-300">Numero de cuotas</Label>
+                  <Input type="number" placeholder="Ej: 36" className="font-mono bg-[#141b2d] border-[#2a3444] text-white"
+                    value={formData.num_installments} onChange={(e) => setFormData({ ...formData, num_installments: e.target.value })}
+                    data-testid="num-installments-input" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-gray-300">Tasa interes anual (%)</Label>
-                  <Input type="number" step="0.1" placeholder="0" className="bg-[#141b2d] border-[#2a3444] text-white"
+                  <Input type="number" step="0.1" placeholder="Ej: 28.5" className="font-mono bg-[#141b2d] border-[#2a3444] text-white"
                     value={formData.interest_rate} onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
                     data-testid="interest-rate-input" />
                 </div>
               </div>
+              {/* Auto-calculated min payment */}
+              {getCalculatedMinPayment() > 0 && (
+                <div className="p-3 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                  <p className="text-xs text-gray-400 mb-1">Pago minimo mensual calculado:</p>
+                  <p className="text-lg font-bold font-mono text-[#D4AF37]" data-testid="calculated-payment">
+                    {formatCurrency(getCalculatedMinPayment())}
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-gray-300">Fecha de vencimiento (opcional)</Label>
                 <Input type="date" className="bg-[#141b2d] border-[#2a3444] text-white"
@@ -531,12 +546,9 @@ const Debts = () => {
               </div>
               <div className="space-y-2">
                 <Label className="text-gray-300">Monto a pagar (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input type="number" placeholder="0" className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)}
-                    max={selectedDebt.current_amount} data-testid="payment-amount-input" />
-                </div>
+                <CurrencyInput className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={paymentAmount} onChange={setPaymentAmount}
+                  data-testid="payment-amount-input" />
               </div>
               <Button onClick={handlePayment} className="w-full btn-gold rounded-md" data-testid="confirm-payment-btn">
                 Confirmar pago

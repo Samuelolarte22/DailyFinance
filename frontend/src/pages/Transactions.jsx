@@ -35,6 +35,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Toaster, toast } from "sonner";
+import CurrencyInput from "../components/CurrencyInput";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -104,7 +105,7 @@ const Transactions = () => {
         {
           type: formData.type,
           category: formData.category,
-          amount: parseFloat(formData.amount),
+          amount: parseInt(formData.amount) || 0,
           description: formData.description || null,
           date: formData.date.toISOString()
         },
@@ -269,17 +270,12 @@ const Transactions = () => {
               {/* Amount */}
               <div className="space-y-2">
                 <Label className="text-gray-300">Monto (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    data-testid="amount-input"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={formData.amount}
+                  onChange={(v) => setFormData({ ...formData, amount: v })}
+                  data-testid="amount-input"
+                />
               </div>
 
               {/* Description */}

@@ -21,6 +21,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import CurrencyInput from "../components/CurrencyInput";
 
 const Savings = () => {
   const [goals, setGoals] = useState([]);
@@ -67,8 +68,8 @@ const Savings = () => {
         `${API}/savings`,
         {
           name: formData.name,
-          target_amount: parseFloat(formData.target_amount),
-          current_amount: formData.current_amount ? parseFloat(formData.current_amount) : 0,
+          target_amount: parseInt(formData.target_amount) || 0,
+          current_amount: formData.current_amount ? parseInt(formData.current_amount) : 0,
           deadline: formData.deadline || null
         },
         { withCredentials: true }
@@ -90,15 +91,16 @@ const Savings = () => {
   };
 
   const handleContribution = async () => {
-    if (!contributionAmount || parseFloat(contributionAmount) <= 0) {
-      toast.error("Ingresa un monto válido");
+    const amount = parseInt(contributionAmount) || 0;
+    if (amount <= 0) {
+      toast.error("Ingresa un monto valido");
       return;
     }
 
     try {
       await axios.put(
         `${API}/savings/${selectedGoal.goal_id}/contribute`,
-        { amount: parseFloat(contributionAmount) },
+        { amount },
         { withCredentials: true }
       );
 
@@ -192,32 +194,22 @@ const Savings = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-gray-300">Monto objetivo (COP)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                      value={formData.target_amount}
-                      onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
-                      data-testid="target-amount-input"
-                    />
-                  </div>
+                  <CurrencyInput
+                    className="bg-[#141b2d] border-[#2a3444] text-white"
+                    value={formData.target_amount}
+                    onChange={(v) => setFormData({ ...formData, target_amount: v })}
+                    data-testid="target-amount-input"
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-300">Ahorro inicial (COP)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                      value={formData.current_amount}
-                      onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
-                      data-testid="initial-amount-input"
-                    />
-                  </div>
+                  <CurrencyInput
+                    className="bg-[#141b2d] border-[#2a3444] text-white"
+                    value={formData.current_amount}
+                    onChange={(v) => setFormData({ ...formData, current_amount: v })}
+                    data-testid="initial-amount-input"
+                  />
                 </div>
               </div>
 
@@ -432,17 +424,12 @@ const Savings = () => {
               
               <div className="space-y-2">
                 <Label className="text-gray-300">Monto a aportar (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={contributionAmount}
-                    onChange={(e) => setContributionAmount(e.target.value)}
-                    data-testid="contribution-amount-input"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={contributionAmount}
+                  onChange={setContributionAmount}
+                  data-testid="contribution-amount-input"
+                />
               </div>
 
               <Button 
