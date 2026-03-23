@@ -184,8 +184,8 @@ async def exchange_session(request: Request, response: Response):
     existing_user = await db.users.find_one({"email": auth_data["email"]}, {"_id": 0})
     if existing_user:
         user_id = existing_user["user_id"]
-        # Update admin status if email is in admin list
-        is_admin = auth_data["email"] in ADMIN_EMAILS
+        # Preserve admin status: keep DB value OR grant if in ADMIN_EMAILS
+        is_admin = existing_user.get("is_admin", False) or auth_data["email"] in ADMIN_EMAILS
         if is_admin != existing_user.get("is_admin", False):
             await db.users.update_one(
                 {"user_id": user_id},

@@ -618,7 +618,7 @@ const Admin = () => {
 
       {/* Transaction Dialog */}
       <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Epilogue, sans-serif' }}>
               Agregar transacción como asesor
@@ -697,7 +697,7 @@ const Admin = () => {
         setDeleteDialogOpen(open);
         if (!open) setDeleteConfirmText("");
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive" style={{ fontFamily: 'Epilogue, sans-serif' }}>
               <AlertTriangle className="w-5 h-5" />

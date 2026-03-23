@@ -330,15 +330,15 @@ const Reports = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} barGap={8}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2a3444" />
                   <XAxis 
                     dataKey="month" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#94A3B8"
+                    tick={{ fontSize: 12, fill: '#9ca3af' }}
+                    stroke="#2a3444"
                   />
                   <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#94A3B8"
+                    tick={{ fontSize: 12, fill: '#9ca3af' }}
+                    stroke="#2a3444"
                     tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`}
                   />
                   <Tooltip 
@@ -347,20 +347,21 @@ const Reports = () => {
                       name === 'income' ? 'Ingresos' : 'Gastos'
                     ]}
                     contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#1a2332',
+                      border: '1px solid #2a3444',
                       borderRadius: '12px',
-                      padding: '12px'
+                      padding: '12px',
+                      color: '#fff'
                     }}
                   />
                   <Bar dataKey="income" name="income" radius={[4, 4, 0, 0]}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`income-${index}`} fill="#86EFAC" />
+                      <Cell key={`income-${index}`} fill="hsl(142, 70%, 45%)" />
                     ))}
                   </Bar>
                   <Bar dataKey="expense" name="expense" radius={[4, 4, 0, 0]}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`expense-${index}`} fill="#FDA4AF" />
+                      <Cell key={`expense-${index}`} fill="hsl(0, 75%, 55%)" />
                     ))}
                   </Bar>
                 </BarChart>
