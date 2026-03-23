@@ -402,7 +402,7 @@ class StudentFinanceAPITester:
 
 def main():
     # Configuration
-    BASE_URL = "https://debt-manager-beta.preview.emergentagent.com"
+    BASE_URL = "https://expense-manager-dev.preview.emergentagent.com"
     SESSION_TOKEN = "test_session_1772301122215"  # From MongoDB setup
     
     # Initialize tester
