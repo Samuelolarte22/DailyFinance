@@ -24,24 +24,30 @@
 - Admin panel (view users, add transactions, toggle admin, delete users)
 - LD Finance dark theme branding (#141b2d, #D4AF37, #FFF)
 
-### Phase 2 - New Features (Complete - March 23)
-- **Animated Logo:** LD -> Holdings slides out -> retracts -> Finance slides out. Used in Landing page (large) and Layout navbar (small)
-- **Custom Categories:** Admin can create/edit/delete global and user-specific transaction categories. Default categories preserved. Dynamic categories loaded in Transactions and Admin forms.
-- **Advisor Chat:** Monthly-scoped chat between user and financial advisor on Dashboard. Messages with task support (checkbox to mark complete, line-through when done). Admin can view and respond from Admin panel. Data persists per month.
-- **Debt Snowball Method:** Enhanced debt module with min_payment, interest_rate fields. Automatic month-by-month amortization calculation. 3-tab view: Resumen (pie chart + summary), Bola de Nieve (schedule table), Mis Deudas (list). Payment redistribution when debts paid off.
+### Phase 2 - Features (Complete)
+- Animated Logo (LD -> Holdings -> Finance sequence)
+- Custom Categories per user (admin CRUD)
+- Advisor Chat (monthly messages/tasks on Dashboard)
+- Debt Snowball Method (pie chart, month-by-month table)
+
+### Phase 3 - Enhancements (Complete - March 23)
+- **Budget Comparison (Proyectado vs Real):** Users set budget per expense category. Dashboard shows actual vs projected with green/red indicators per month. Add/edit/delete budgets inline.
+- **Simplified Debt Form:** Replaced min_payment input with num_installments. System auto-calculates min_payment using PMT formula: P * [r(1+r)^n] / [(1+r)^n - 1]. Shows calculated payment preview in real-time.
+- **CurrencyInput Component:** All money inputs across the app now auto-format with dot thousand separators (1.000.000 Colombian format). Applied to Transactions, Savings, Debts, Dashboard budgets, Admin.
 
 ### Bug Fixes
-- Admin role persistence: is_admin preserved from DB on re-login (not overwritten by ADMIN_EMAILS env var)
+- Admin role persistence: is_admin preserved from DB on re-login
 - Reports.jsx and Admin.jsx updated to dark theme
 
 ## DB Schema
 - **users:** user_id, email, name, picture, has_completed_survey, is_admin, created_at
 - **transactions:** transaction_id, user_id, type, category, amount, description, date
-- **debts:** debt_id, user_id, name, total_amount, current_amount, interest_rate, min_payment, due_date
+- **debts:** debt_id, user_id, name, total_amount, current_amount, interest_rate, num_installments, min_payment, due_date
 - **savings_goals:** goal_id, user_id, name, target_amount, current_amount, deadline
 - **surveys:** survey_id, user_id, monthly_income, financial_knowledge, ...
 - **categories:** category_id, name, type (income/expense), user_id (null=global)
 - **advisor_messages:** message_id, user_id, sender_id, sender_name, sender_role, content, is_task, is_completed, month, created_at
+- **budgets:** budget_id, user_id, category, projected_amount, created_at
 - **user_sessions:** user_id, session_token, expires_at
 
 ## Key API Endpoints
@@ -52,31 +58,26 @@
 - Debts: /api/debts (CRUD), /api/debts/{id}/pay, /api/debts/snowball
 - Savings: /api/savings (CRUD), /api/savings/{id}/contribute
 - Reports: /api/reports
-- Categories: /api/categories, /api/admin/categories (CRUD), /api/admin/users/{id}/categories
+- Budgets: /api/budgets (CRUD), /api/budgets/comparison
+- Categories: /api/categories, /api/admin/categories (CRUD)
 - Messages: /api/messages, /api/messages/{id}/complete, /api/admin/users/{id}/messages
-- Admin: /api/admin/summary, /api/admin/users, /api/admin/users/{id}, /api/admin/users/{id}/toggle-admin, DELETE /api/admin/users/{id}
+- Admin: /api/admin/summary, /api/admin/users, /api/admin/users/{id}, toggle-admin, delete
 
 ## Prioritized Backlog
 
 ### P0 (Done)
-- [x] All MVP features
-- [x] Animated logo
-- [x] Custom categories
-- [x] Advisor chat with tasks
-- [x] Debt snowball method
-- [x] Admin bug fix
+- [x] All MVP + Phase 2 + Phase 3 features
 
 ### P1 (Future)
 - [ ] Export financial reports as PDF
 - [ ] Email notifications for debt due dates
-- [ ] Budget planning tool
+- [ ] Budget planning tool with alerts
 - [ ] Recurring transactions
 
 ### P2 (Future)
 - [ ] Multi-currency support
 - [ ] Data import from bank statements
 - [ ] Financial tips/education module
-- [ ] Custom domain setup
 
 ## Configuration
 - Admin email: samuelolarte22@gmail.com
