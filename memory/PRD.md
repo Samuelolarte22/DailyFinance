@@ -1,31 +1,9 @@
 # LD Finance - PRD (Product Requirements Document)
 
 ## Project Overview
-**Title:** Evaluacion de un sistema de gestion de informacion financiera para la organizacion de gastos en estudiantes universitarios: estudio en una beta cerrada
-**Institution:** Universidad Ean - Facultad de Ingenieria - Programa Ingenieria en Sistemas
-**App Name:** LD Finance
-**Problem Statement:** Como puede un sistema de gestion de informacion ayudar a las personas a entender y aprender sobre las finanzas personales y gestion de deudas?
-
-## User Personas
-1. **Primary:** Estudiantes universitarios y profesionales que quieren gestionar sus finanzas
-2. **Admin:** Asesores financieros que supervisan y asesoran a los usuarios
-3. **Secondary:** Investigadores evaluando el impacto del sistema
-
-## Core Requirements
-- Autenticacion con Google Login (Emergent Auth)
-- Encuesta diagnostica inicial sobre manejo de gastos, deudas y ahorro
-- Modulo de registro de ingresos y egresos (vista mensual)
-- Control y seguimiento de deudas (vista global)
-- Metas de ahorro con progreso visual (vista global)
-- Reportes comparativos (antes/despues) del uso del sistema
-- Panel de administracion para asesores
-- Diseno profesional con paleta: azul oscuro (#141b2d), dorado (#D4AF37), blanco (#FFF)
-
-## Design System
-- Color palette: #141b2d (dark navy), #D4AF37 (gold), #FFFFFF (white) - 60/30/10 rule
-- Playfair Display for headings, Inter for body, JetBrains Mono for numbers
-- Glass-morphism, gold gradients, card hover effects
-- Dark theme throughout
+**Title:** Evaluacion de un sistema de gestion de informacion financiera  
+**App Name:** LD Finance (rama de LD Holdings)  
+**Institution:** Universidad Ean  
 
 ## Tech Stack
 - **Frontend:** React 19, Tailwind CSS, Shadcn/UI, Recharts
@@ -33,82 +11,74 @@
 - **Database:** MongoDB
 - **Authentication:** Emergent Google OAuth
 
+## What's Been Implemented (March 23, 2026)
+
+### Phase 1 - MVP (Complete)
+- Google OAuth authentication
+- 4-step diagnostic survey onboarding
+- Income/expense CRUD with monthly view
+- Debt management with progress bars
+- Savings goals with contributions
+- Before/after financial reports
+- Dashboard with monthly navigation
+- Admin panel (view users, add transactions, toggle admin, delete users)
+- LD Finance dark theme branding (#141b2d, #D4AF37, #FFF)
+
+### Phase 2 - New Features (Complete - March 23)
+- **Animated Logo:** LD -> Holdings slides out -> retracts -> Finance slides out. Used in Landing page (large) and Layout navbar (small)
+- **Custom Categories:** Admin can create/edit/delete global and user-specific transaction categories. Default categories preserved. Dynamic categories loaded in Transactions and Admin forms.
+- **Advisor Chat:** Monthly-scoped chat between user and financial advisor on Dashboard. Messages with task support (checkbox to mark complete, line-through when done). Admin can view and respond from Admin panel. Data persists per month.
+- **Debt Snowball Method:** Enhanced debt module with min_payment, interest_rate fields. Automatic month-by-month amortization calculation. 3-tab view: Resumen (pie chart + summary), Bola de Nieve (schedule table), Mis Deudas (list). Payment redistribution when debts paid off.
+
+### Bug Fixes
+- Admin role persistence: is_admin preserved from DB on re-login (not overwritten by ADMIN_EMAILS env var)
+- Reports.jsx and Admin.jsx updated to dark theme
+
 ## DB Schema
 - **users:** user_id, email, name, picture, has_completed_survey, is_admin, created_at
 - **transactions:** transaction_id, user_id, type, category, amount, description, date
-- **debts:** debt_id, user_id, name, total_amount, current_amount, interest_rate, due_date
-- **savings_goals:** goal_id, user_id, name, target_amount, current_amount, target_date
+- **debts:** debt_id, user_id, name, total_amount, current_amount, interest_rate, min_payment, due_date
+- **savings_goals:** goal_id, user_id, name, target_amount, current_amount, deadline
 - **surveys:** survey_id, user_id, monthly_income, financial_knowledge, ...
-- **user_sessions:** user_id, session_token, expires_at, created_at
+- **categories:** category_id, name, type (income/expense), user_id (null=global)
+- **advisor_messages:** message_id, user_id, sender_id, sender_name, sender_role, content, is_task, is_completed, month, created_at
+- **user_sessions:** user_id, session_token, expires_at
 
 ## Key API Endpoints
-- /api/auth/session, /api/auth/me, /api/auth/logout
-- /api/survey
-- /api/dashboard
-- /api/transactions (CRUD)
-- /api/debts (CRUD), /api/debts/{id}/payment
-- /api/savings (CRUD), /api/savings/{id}/contribute
-- /api/reports
-- /api/admin/summary, /api/admin/users, /api/admin/users/{id}
-- /api/admin/users/{id}/toggle-admin, /api/admin/users/{id}/transactions
-- DELETE /api/admin/users/{id}
-
-## What's Been Implemented (March 23, 2026)
-
-### Backend
-- Authentication endpoints with Emergent Google OAuth
-- User management with session tokens
-- Diagnostic survey CRUD
-- Transactions CRUD (income/expenses)
-- Debts CRUD with payment tracking
-- Savings goals CRUD with contributions
-- Financial reports with before/after comparison
-- Dashboard summary endpoint
-- Admin panel: view users, add transactions, toggle admin, delete users
-- Admin role persistence bug FIXED (is_admin preserved from DB on re-login)
-
-### Frontend
-- Landing page with "LD Finance" branding, dark theme
-- Google OAuth authentication flow
-- 4-step diagnostic survey onboarding
-- Dashboard with monthly view selector
-- Transactions page with monthly navigation
-- Debts page with progress bars and payment modal
-- Savings page with circular progress indicators
-- Reports page with before/after comparison (dark theme charts)
-- Admin page with user management, dark theme dialogs
-- Profile page
-- Responsive Layout with conditional admin nav link
+- Auth: /api/auth/session, /api/auth/me, /api/auth/logout
+- Survey: /api/survey
+- Dashboard: /api/dashboard
+- Transactions: /api/transactions (CRUD)
+- Debts: /api/debts (CRUD), /api/debts/{id}/pay, /api/debts/snowball
+- Savings: /api/savings (CRUD), /api/savings/{id}/contribute
+- Reports: /api/reports
+- Categories: /api/categories, /api/admin/categories (CRUD), /api/admin/users/{id}/categories
+- Messages: /api/messages, /api/messages/{id}/complete, /api/admin/users/{id}/messages
+- Admin: /api/admin/summary, /api/admin/users, /api/admin/users/{id}, /api/admin/users/{id}/toggle-admin, DELETE /api/admin/users/{id}
 
 ## Prioritized Backlog
 
 ### P0 (Done)
-- [x] User authentication
-- [x] Diagnostic survey
-- [x] Income/expense tracking
-- [x] Debt management
-- [x] Savings goals
-- [x] Before/after reports
-- [x] Admin panel (view users, transactions, toggle admin, delete users)
-- [x] LD Finance rebranding with dark theme
-- [x] Monthly view for income/expenses
-- [x] Admin role persistence bug fix
-- [x] Deployment readiness
+- [x] All MVP features
+- [x] Animated logo
+- [x] Custom categories
+- [x] Advisor chat with tasks
+- [x] Debt snowball method
+- [x] Admin bug fix
 
-### P1 (High Priority - Future)
+### P1 (Future)
 - [ ] Export financial reports as PDF
 - [ ] Email notifications for debt due dates
 - [ ] Budget planning tool
 - [ ] Recurring transactions
 
-### P2 (Medium Priority - Future)
-- [ ] Categories customization
+### P2 (Future)
 - [ ] Multi-currency support
 - [ ] Data import from bank statements
 - [ ] Financial tips/education module
-- [ ] Custom message on Landing Page before login
+- [ ] Custom domain setup
 
 ## Configuration
-- Admin email: samuelolarte22@gmail.com (in ADMIN_EMAILS env var)
+- Admin email: samuelolarte22@gmail.com
 - Currency: COP (Colombian Peso)
 - Language: Spanish
