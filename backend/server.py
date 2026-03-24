@@ -1842,42 +1842,105 @@ DEFAULT_EXPENSE_CATEGORIES = ["Alimentacion", "Transporte", "Entretenimiento", "
 
 @api_router.get("/categories")
 async def get_categories(request: Request):
-    """Get all categories for user (defaults + custom global + custom per-user)"""
+    """Get categories for user. Auto-seeds defaults on first access."""
     user = await get_current_user(request)
+    user_id = user["user_id"]
     
-    # Fetch custom categories (global ones + user-specific ones)
-    custom_cats = await db.categories.find(
-        {"$or": [{"user_id": None}, {"user_id": user["user_id"]}]},
-        {"_id": 0}
+    # Check if user has been seeded
+    existing = await db.categories.count_documents({"user_id": user_id})
+    
+    if existing == 0:
+        # Seed defaults for this user
+        docs = []
+        for name in DEFAULT_INCOME_CATEGORIES:
+            docs.append({
+                "category_id": f"cat_{uuid.uuid4().hex[:12]}",
+                "name": name,
+                "type": "income",
+                "user_id": user_id,
+                "is_default": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+        for name in DEFAULT_EXPENSE_CATEGORIES:
+            docs.append({
+                "category_id": f"cat_{uuid.uuid4().hex[:12]}",
+                "name": name,
+                "type": "expense",
+                "user_id": user_id,
+                "is_default": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+        if docs:
+            await db.categories.insert_many(docs)
+    
+    # Return only this user's categories
+    user_cats = await db.categories.find(
+        {"user_id": user_id}, {"_id": 0}
     ).to_list(200)
     
-    # Build combined lists
-    income_cats = list(DEFAULT_INCOME_CATEGORIES)
-    expense_cats = list(DEFAULT_EXPENSE_CATEGORIES)
-    
-    for cat in custom_cats:
-        if cat["type"] == "income" and cat["name"] not in income_cats:
-            income_cats.append(cat["name"])
-        elif cat["type"] == "expense" and cat["name"] not in expense_cats:
-            expense_cats.append(cat["name"])
+    income_cats = [c["name"] for c in user_cats if c["type"] == "income"]
+    expense_cats = [c["name"] for c in user_cats if c["type"] == "expense"]
     
     return {
         "income": income_cats,
         "expense": expense_cats,
-        "custom": custom_cats
+        "custom": user_cats
     }
 
-@api_router.post("/admin/categories")
-async def admin_create_category(cat_data: CategoryCreate, request: Request):
-    """Admin creates a global category"""
-    await get_admin_user(request)
+@api_router.post("/categories")
+async def create_category(cat_data: CategoryCreate, request: Request):
+    """User or admin creates a category for themselves"""
+    user = await get_current_user(request)
+    
+    # Check for duplicate
+    existing = await db.categories.find_one({
+        "user_id": user["user_id"], "name": cat_data.name, "type": cat_data.type
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Esta categoria ya existe")
     
     cat_id = f"cat_{uuid.uuid4().hex[:12]}"
     doc = {
         "category_id": cat_id,
         "name": cat_data.name,
         "type": cat_data.type,
-        "user_id": None,  # global
+        "user_id": user["user_id"],
+        "is_default": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.categories.insert_one(doc)
+    return {"message": "Categoria creada", "category_id": cat_id}
+
+@api_router.delete("/categories/{category_id}")
+async def delete_category(category_id: str, request: Request):
+    """User or admin deletes one of their own categories"""
+    user = await get_current_user(request)
+    
+    result = await db.categories.delete_one({
+        "category_id": category_id, "user_id": user["user_id"]
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Categoria no encontrada")
+    return {"message": "Categoria eliminada"}
+
+@api_router.post("/admin/categories")
+async def admin_create_category(cat_data: CategoryCreate, request: Request):
+    """Admin creates a category for themselves (personal)"""
+    admin = await get_admin_user(request)
+    
+    existing = await db.categories.find_one({
+        "user_id": admin["user_id"], "name": cat_data.name, "type": cat_data.type
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Esta categoria ya existe")
+    
+    cat_id = f"cat_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "category_id": cat_id,
+        "name": cat_data.name,
+        "type": cat_data.type,
+        "user_id": admin["user_id"],
+        "is_default": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.categories.insert_one(doc)
@@ -1888,12 +1951,19 @@ async def admin_create_user_category(user_id: str, cat_data: CategoryCreate, req
     """Admin creates a category for a specific user"""
     await get_admin_user(request)
     
+    existing = await db.categories.find_one({
+        "user_id": user_id, "name": cat_data.name, "type": cat_data.type
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Esta categoria ya existe para este usuario")
+    
     cat_id = f"cat_{uuid.uuid4().hex[:12]}"
     doc = {
         "category_id": cat_id,
         "name": cat_data.name,
         "type": cat_data.type,
         "user_id": user_id,
+        "is_default": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.categories.insert_one(doc)

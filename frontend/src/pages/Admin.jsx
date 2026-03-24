@@ -432,7 +432,7 @@ const Admin = () => {
       <Card className="bg-[#1a2332] border-[#2a3444]">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
-            Categorias Personalizadas
+            Mis Categorias
           </CardTitle>
           <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
             <DialogTrigger asChild>
@@ -470,12 +470,14 @@ const Admin = () => {
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent>
-          {customCategories.length > 0 ? (
+        <CardContent className="space-y-4">
+          {/* Income categories */}
+          <div>
+            <p className="text-xs font-medium text-green-400 mb-2">Ingresos</p>
             <div className="flex flex-wrap gap-2">
-              {customCategories.map(cat => (
+              {customCategories.filter(c => c.type === 'income').map(cat => (
                 <div key={cat.category_id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141b2d] border border-[#2a3444] text-sm">
-                  <span className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className="w-2 h-2 rounded-full bg-green-400" />
                   <span className="text-gray-300">{cat.name}</span>
                   <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-gray-600 hover:text-red-400 ml-1"
                     data-testid={`delete-cat-${cat.category_id}`}>
@@ -483,10 +485,30 @@ const Admin = () => {
                   </button>
                 </div>
               ))}
+              {customCategories.filter(c => c.type === 'income').length === 0 && (
+                <p className="text-xs text-gray-600">Sin categorias de ingreso</p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm text-gray-500">No hay categorias personalizadas. Las categorias predeterminadas estan activas.</p>
-          )}
+          </div>
+          {/* Expense categories */}
+          <div>
+            <p className="text-xs font-medium text-red-400 mb-2">Gastos</p>
+            <div className="flex flex-wrap gap-2">
+              {customCategories.filter(c => c.type === 'expense').map(cat => (
+                <div key={cat.category_id} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141b2d] border border-[#2a3444] text-sm">
+                  <span className="w-2 h-2 rounded-full bg-red-400" />
+                  <span className="text-gray-300">{cat.name}</span>
+                  <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-gray-600 hover:text-red-400 ml-1"
+                    data-testid={`delete-cat-${cat.category_id}`}>
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {customCategories.filter(c => c.type === 'expense').length === 0 && (
+                <p className="text-xs text-gray-600">Sin categorias de gasto</p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
