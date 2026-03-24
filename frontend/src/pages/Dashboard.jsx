@@ -23,6 +23,7 @@ import {
 import { Link } from "react-router-dom";
 import AdvisorChat from "../components/AdvisorChat";
 import CurrencyInput from "../components/CurrencyInput";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Toaster, toast } from "sonner";
 
 const Dashboard = () => {

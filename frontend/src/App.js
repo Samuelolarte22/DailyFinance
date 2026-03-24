@@ -38,6 +38,8 @@ export const useAuth = () => {
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedUser, setImpersonatedUser] = useState(null);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -53,8 +55,6 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
     if (window.location.hash?.includes('session_id=')) {
       setLoading(false);
       return;
@@ -71,8 +71,62 @@ const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const startImpersonation = async (userId) => {
+    try {
+      const response = await axios.post(`${API}/admin/impersonate/${userId}`, {}, { withCredentials: true });
+      const { impersonation_token, user: targetUser } = response.data;
+      // Save admin's original session token
+      const adminSessionToken = document.cookie.split('; ').find(c => c.startsWith('session_token='))?.split('=')[1];
+      sessionStorage.setItem('admin_session_token', adminSessionToken || '');
+      sessionStorage.setItem('impersonation_token', impersonation_token);
+      sessionStorage.setItem('admin_user', JSON.stringify(user));
+      // Set new cookie for impersonation
+      document.cookie = `session_token=${impersonation_token}; path=/; SameSite=Lax`;
+      // Fetch the impersonated user's full data
+      const meResponse = await axios.get(`${API}/auth/me`, { withCredentials: true });
+      setImpersonatedUser(targetUser);
+      setIsImpersonating(true);
+      setUser(meResponse.data);
+      return true;
+    } catch (error) {
+      console.error("Impersonation error:", error);
+      return false;
+    }
+  };
+
+  const stopImpersonation = async () => {
+    try {
+      // Clean up impersonation session
+      const impToken = sessionStorage.getItem('impersonation_token');
+      if (impToken) {
+        await axios.post(`${API}/admin/stop-impersonation`, {}, { 
+          headers: { 'Authorization': `Bearer ${impToken}` }
+        });
+      }
+      // Restore admin session
+      const adminToken = sessionStorage.getItem('admin_session_token');
+      if (adminToken) {
+        document.cookie = `session_token=${adminToken}; path=/; SameSite=Lax`;
+      }
+      const adminUser = JSON.parse(sessionStorage.getItem('admin_user') || 'null');
+      sessionStorage.removeItem('admin_session_token');
+      sessionStorage.removeItem('impersonation_token');
+      sessionStorage.removeItem('admin_user');
+      setIsImpersonating(false);
+      setImpersonatedUser(null);
+      if (adminUser) {
+        setUser(adminUser);
+      } else {
+        await checkAuth();
+      }
+    } catch (error) {
+      console.error("Stop impersonation error:", error);
+      await checkAuth();
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, setUser, loading, logout, checkAuth, isImpersonating, impersonatedUser, startImpersonation, stopImpersonation }}>
       {children}
     </AuthContext.Provider>
   );
@@ -80,7 +134,7 @@ const AuthProvider = ({ children }) => {
 
 // Protected Route
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,12 +144,12 @@ const ProtectedRoute = ({ children }) => {
     }
   }, [user, loading, navigate]);
 
-  // If user hasn't completed survey, redirect to survey
+  // If user hasn't completed survey, redirect to survey (skip during impersonation)
   useEffect(() => {
-    if (user && !user.has_completed_survey && location.pathname !== "/survey") {
+    if (user && !user.has_completed_survey && location.pathname !== "/survey" && !isImpersonating) {
       navigate("/survey", { replace: true });
     }
-  }, [user, location.pathname, navigate]);
+  }, [user, location.pathname, navigate, isImpersonating]);
 
   if (loading) {
     return (

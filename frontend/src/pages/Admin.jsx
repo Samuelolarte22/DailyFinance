@@ -36,13 +36,16 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  UserCheck
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
+import { useNavigate } from "react-router-dom";
 
 const Admin = () => {
-  const { user } = useAuth();
+  const { user, startImpersonation } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [users, setUsers] = useState([]);
@@ -271,6 +274,16 @@ const Admin = () => {
     u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleImpersonate = async (userId) => {
+    const success = await startImpersonation(userId);
+    if (success) {
+      toast.success("Modo asesor activado");
+      navigate("/dashboard");
+    } else {
+      toast.error("Error al activar modo asesor");
+    }
+  };
 
   const categories = formData.type === "income" ? incomeCategories : expenseCategories;
 
@@ -570,6 +583,14 @@ const Admin = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   {userDetail.user?.user_id !== user?.user_id && (
                     <>
+                      <Button
+                        className="rounded-full bg-[#D4AF37] text-[#141b2d] hover:bg-[#D4AF37]/80"
+                        onClick={() => handleImpersonate(userDetail.user?.user_id)}
+                        data-testid="impersonate-user-btn"
+                      >
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Ver como usuario
+                      </Button>
                       <Button 
                         variant={userDetail.user?.is_admin ? "outline" : "secondary"}
                         className="rounded-full"

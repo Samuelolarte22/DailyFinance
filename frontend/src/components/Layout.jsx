@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../App";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -21,13 +21,16 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
-  Users
+  Users,
+  Eye,
+  ArrowLeft
 } from "lucide-react";
 import AnimatedLogo from "./AnimatedLogo";
 
 const Layout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigation = [
@@ -61,8 +64,37 @@ const Layout = ({ children }) => {
     window.location.href = "/";
   };
 
+  const handleStopImpersonation = async () => {
+    await stopImpersonation();
+    navigate("/admin");
+  };
+
   return (
     <div className="min-h-screen bg-[#141b2d]">
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="sticky top-0 z-[60] bg-amber-500 text-black py-2 px-4" data-testid="impersonation-banner">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              <span className="text-sm font-semibold">
+                Modo Asesor: Viendo como {impersonatedUser?.name || user?.name}
+              </span>
+              <span className="text-xs opacity-75">({impersonatedUser?.email || user?.email})</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-black/10 border-black/30 text-black hover:bg-black/20 h-7 text-xs"
+              onClick={handleStopImpersonation}
+              data-testid="stop-impersonation-btn"
+            >
+              <ArrowLeft className="w-3 h-3 mr-1" />
+              Volver al Panel Admin
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 bg-[#141b2d]/90 backdrop-blur-md border-b border-[#2a3444]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

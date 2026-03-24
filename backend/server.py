@@ -1125,6 +1125,55 @@ async def admin_delete_user_saving(user_id: str, goal_id: str, request: Request)
         raise HTTPException(status_code=404, detail="Meta no encontrada")
     return {"message": "Meta eliminada"}
 
+@api_router.post("/admin/impersonate/{user_id}")
+async def admin_impersonate_user(user_id: str, request: Request, response: Response):
+    """Admin impersonates a user by creating a temporary session"""
+    admin = await get_admin_user(request)
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Create a temporary session for the target user
+    imp_session_token = str(uuid.uuid4())
+    session_doc = {
+        "session_token": imp_session_token,
+        "user_id": user_id,
+        "is_impersonation": True,
+        "admin_user_id": admin["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    return {
+        "impersonation_token": imp_session_token,
+        "user": {
+            "user_id": target_user["user_id"],
+            "name": target_user.get("name", ""),
+            "email": target_user.get("email", ""),
+            "picture": target_user.get("picture", "")
+        }
+    }
+
+@api_router.post("/admin/stop-impersonation")
+async def admin_stop_impersonation(request: Request):
+    """Stop impersonation by deleting the impersonation session"""
+    session_token = request.cookies.get("session_token")
+    if not session_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            session_token = auth_header.split(" ")[1]
+    
+    if session_token:
+        await db.user_sessions.delete_one({
+            "session_token": session_token,
+            "is_impersonation": True
+        })
+    
+    return {"message": "Impersonation ended"}
+
+
 # ============== SOCIAL/CONNECTION ENDPOINTS ==============
 
 @api_router.put("/profile/visibility")
