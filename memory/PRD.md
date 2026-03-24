@@ -45,6 +45,10 @@
 9. **Social network (Community)** - Public/private profiles, user discovery, connection requests (send/accept/reject/resend), shared transactions with % split and notifications
 10. **Footer** - Animated logo + "Decisiones financieras inteligentes, resultados reales"
 
+### Phase 4 - V2.1 (March 24, 2026)
+11. **Dashboard budget tabs** - Merged expense/income budget cards into single tabbed card (Gastos/Ingresos)
+12. **Admin Impersonation (Vista de Asesor)** - Full frontend implementation: "Ver como usuario" button in Admin panel, impersonation banner, session management, navigate as user with editing capabilities
+
 ## DB Collections
 - users, transactions, debts, savings_goals, surveys, user_sessions
 - categories, advisor_messages, budgets, banks, documents
@@ -63,6 +67,7 @@
 - Notifications: /api/notifications, /api/notifications/read
 - Shared Transactions: /api/transactions/shared (create/accept/reject)
 - Admin: Full view/edit access to user data
+- Admin Impersonation: /api/admin/impersonate/{user_id}, /api/admin/stop-impersonation
 
 ## Configuration
 - Admin email: samuelolarte22@gmail.com
@@ -73,4 +78,7 @@
 - [ ] Export reports as PDF
 - [ ] Email notifications for debt due dates
 - [ ] Recurring transactions
-- [ ] Admin impersonation mode (full interactive view, not just data)
+- [ ] Gamification social (ranking entre amigos)
+- [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
+- [ ] Resumen semanal por email
+- [ ] Refactoring: Split server.py into routers and models
