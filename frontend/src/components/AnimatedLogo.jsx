@@ -11,11 +11,11 @@ const AnimatedLogo = ({ size = "large" }) => {
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 600),
-      setTimeout(() => setPhase(2), 1200),
-      setTimeout(() => setPhase(3), 2400),
-      setTimeout(() => setPhase(4), 3000),
-      setTimeout(() => setPhase(5), 3600),
+      setTimeout(() => setPhase(1), 800),
+      setTimeout(() => setPhase(2), 1800),
+      setTimeout(() => setPhase(3), 3600),
+      setTimeout(() => setPhase(4), 4600),
+      setTimeout(() => setPhase(5), 5600),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -50,7 +50,7 @@ const AnimatedLogo = ({ size = "large" }) => {
           overflow: "hidden",
           maxWidth: isVisible ? (isLarge ? "200px" : "80px") : "0px",
           opacity: isVisible ? 1 : 0,
-          transition: "max-width 0.5s ease, opacity 0.4s ease",
+          transition: "max-width 0.8s ease, opacity 0.6s ease",
           marginLeft: isVisible ? (isLarge ? "6px" : "3px") : "0px",
         }}
       >

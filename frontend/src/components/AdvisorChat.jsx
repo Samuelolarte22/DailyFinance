@@ -20,7 +20,7 @@ const AdvisorChat = ({ selectedMonth }) => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length]);
 
   const fetchMessages = async () => {
     try {

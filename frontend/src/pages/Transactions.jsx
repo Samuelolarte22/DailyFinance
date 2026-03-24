@@ -51,8 +51,14 @@ const Transactions = () => {
     category: "",
     amount: "",
     description: "",
-    date: new Date()
+    date: new Date(),
+    bank: ""
   });
+  const [banks, setBanks] = useState([]);
+  const [isShared, setIsShared] = useState(false);
+  const [sharedWith, setSharedWith] = useState("");
+  const [myPercentage, setMyPercentage] = useState("50");
+  const [connections, setConnections] = useState([]);
 
   const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"
@@ -65,7 +71,27 @@ const Transactions = () => {
   useEffect(() => {
     fetchTransactions();
     fetchCategories();
+    fetchBanks();
+    fetchConnections();
   }, []);
+
+  const fetchConnections = async () => {
+    try {
+      const response = await axios.get(`${API}/connections`, { withCredentials: true });
+      setConnections(response.data);
+    } catch (error) {
+      console.error("Error fetching connections:", error);
+    }
+  };
+
+  const fetchBanks = async () => {
+    try {
+      const response = await axios.get(`${API}/banks`, { withCredentials: true });
+      setBanks(response.data);
+    } catch (error) {
+      console.error("Error fetching banks:", error);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -100,27 +126,44 @@ const Transactions = () => {
     }
 
     try {
-      await axios.post(
-        `${API}/transactions`,
-        {
+      if (isShared && sharedWith) {
+        // Create shared transaction
+        await axios.post(`${API}/transactions/shared`, {
           type: formData.type,
           category: formData.category,
           amount: parseInt(formData.amount) || 0,
           description: formData.description || null,
-          date: formData.date.toISOString()
-        },
-        { withCredentials: true }
-      );
+          date: formData.date.toISOString(),
+          bank: formData.bank || null,
+          shared_with: sharedWith,
+          my_percentage: parseFloat(myPercentage),
+          friend_percentage: 100 - parseFloat(myPercentage)
+        }, { withCredentials: true });
+        toast.success("Transaccion compartida creada");
+      } else {
+        await axios.post(`${API}/transactions`, {
+          type: formData.type,
+          category: formData.category,
+          amount: parseInt(formData.amount) || 0,
+          description: formData.description || null,
+          date: formData.date.toISOString(),
+          bank: formData.bank || null
+        }, { withCredentials: true });
+        toast.success("Transaccion agregada");
+      }
 
-      toast.success("Transacción agregada");
       setDialogOpen(false);
       setFormData({
         type: "expense",
         category: "",
         amount: "",
         description: "",
-        date: new Date()
+        date: new Date(),
+        bank: ""
       });
+      setIsShared(false);
+      setSharedWith("");
+      setMyPercentage("50");
       fetchTransactions();
     } catch (error) {
       console.error("Error creating transaction:", error);
@@ -316,6 +359,61 @@ const Transactions = () => {
                 </Popover>
               </div>
 
+              {/* Bank (optional) */}
+              {banks.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Banco (opcional)</Label>
+                  <Select value={formData.bank} onValueChange={(value) => setFormData({ ...formData, bank: value === "none" ? "" : value })}>
+                    <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="bank-select">
+                      <SelectValue placeholder="Sin especificar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin especificar</SelectItem>
+                      {banks.map(b => (
+                        <SelectItem key={b.bank_id} value={b.name}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Shared Transaction */}
+              {connections.length > 0 && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#2a3444]">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" checked={isShared} onChange={(e) => setIsShared(e.target.checked)}
+                      className="rounded border-[#2a3444]" id="shared-check" />
+                    <Label htmlFor="shared-check" className="text-gray-300 text-sm cursor-pointer">
+                      Compartir con alguien
+                    </Label>
+                  </div>
+                  {isShared && (
+                    <div className="space-y-3">
+                      <Select value={sharedWith} onValueChange={setSharedWith}>
+                        <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="shared-with-select">
+                          <SelectValue placeholder="Seleccionar contacto..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {connections.map(c => (
+                            <SelectItem key={c.user_id} value={c.user_id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="space-y-1">
+                        <Label className="text-gray-300 text-xs">Mi porcentaje: {myPercentage}%</Label>
+                        <input type="range" min="1" max="99" value={myPercentage}
+                          onChange={(e) => setMyPercentage(e.target.value)}
+                          className="w-full accent-[#D4AF37]" data-testid="percentage-slider" />
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Yo: {myPercentage}%</span>
+                          <span>Otro: {100 - parseInt(myPercentage)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Button type="submit" className="w-full btn-gold rounded-md" data-testid="submit-transaction-btn">
                 Guardar transacción
               </Button>
@@ -436,6 +534,7 @@ const Transactions = () => {
                     )}
                     <p className="text-xs text-gray-600 mt-1">
                       {formatDate(txn.date)}
+                      {txn.bank && <span className="ml-2 text-gray-500">| {txn.bank}</span>}
                     </p>
                   </div>
                   

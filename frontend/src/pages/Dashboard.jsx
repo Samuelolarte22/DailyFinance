@@ -30,12 +30,15 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [budgetComparison, setBudgetComparison] = useState([]);
+  const [incomeBudgetComparison, setIncomeBudgetComparison] = useState([]);
   const [editingBudget, setEditingBudget] = useState(null);
   const [editAmount, setEditAmount] = useState("");
   const [showAddBudget, setShowAddBudget] = useState(false);
+  const [showAddIncomeBudget, setShowAddIncomeBudget] = useState(false);
   const [newBudgetCat, setNewBudgetCat] = useState("");
   const [newBudgetAmount, setNewBudgetAmount] = useState("");
   const [expenseCategories, setExpenseCategories] = useState([]);
+  const [incomeCategories, setIncomeCategories] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -65,6 +68,7 @@ const Dashboard = () => {
     try {
       const response = await axios.get(`${API}/categories`, { withCredentials: true });
       if (response.data.expense) setExpenseCategories(response.data.expense);
+      if (response.data.income) setIncomeCategories(response.data.income);
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
@@ -72,24 +76,30 @@ const Dashboard = () => {
 
   const fetchBudgetComparison = async () => {
     try {
-      const response = await axios.get(`${API}/budgets/comparison?month=${selectedMonth}`, { withCredentials: true });
-      setBudgetComparison(response.data);
+      const [expRes, incRes] = await Promise.all([
+        axios.get(`${API}/budgets/comparison?month=${selectedMonth}&budget_type=expense`, { withCredentials: true }),
+        axios.get(`${API}/budgets/comparison?month=${selectedMonth}&budget_type=income`, { withCredentials: true })
+      ]);
+      setBudgetComparison(expRes.data);
+      setIncomeBudgetComparison(incRes.data);
     } catch (error) {
       console.error("Error fetching budget comparison:", error);
     }
   };
 
-  const handleSaveBudget = async (category, amount) => {
+  const handleSaveBudget = async (category, amount, budgetType = "expense") => {
     if (!amount || parseInt(amount) <= 0) return;
     try {
       await axios.post(`${API}/budgets`, {
         category,
-        projected_amount: parseInt(amount)
+        projected_amount: parseInt(amount),
+        budget_type: budgetType
       }, { withCredentials: true });
       toast.success("Presupuesto guardado");
       setEditingBudget(null);
       setEditAmount("");
       setShowAddBudget(false);
+      setShowAddIncomeBudget(false);
       setNewBudgetCat("");
       setNewBudgetAmount("");
       fetchBudgetComparison();
@@ -489,6 +499,87 @@ const Dashboard = () => {
               <Target className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-600" />
               <p className="text-sm text-gray-600">No hay presupuestos configurados</p>
               <p className="text-xs text-gray-700 mt-1">Agrega un presupuesto para cada categoria de gasto</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Income: Projected vs Actual */}
+      <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="income-budget-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-white flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <TrendingUp className="w-5 h-5 text-green-400" />
+            Ingresos: Esperado vs Real
+          </CardTitle>
+          <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10"
+            onClick={() => setShowAddIncomeBudget(!showAddIncomeBudget)} data-testid="add-income-budget-btn">
+            <Plus className="w-4 h-4 mr-1" /> Agregar
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {showAddIncomeBudget && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+              <select value={newBudgetCat} onChange={(e) => setNewBudgetCat(e.target.value)}
+                className="bg-[#141b2d] border border-[#2a3444] text-white text-sm rounded-md px-3 py-2 flex-1"
+                data-testid="income-budget-cat-select">
+                <option value="">Fuente de ingreso...</option>
+                {incomeCategories
+                  .filter(c => !incomeBudgetComparison.find(b => b.category === c && b.projected > 0))
+                  .map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <CurrencyInput value={newBudgetAmount} onChange={setNewBudgetAmount}
+                placeholder="Esperado" className="bg-[#141b2d] border-[#2a3444] text-white w-36"
+                data-testid="income-budget-amount" />
+              <Button size="icon" className="bg-green-600 hover:bg-green-700 shrink-0"
+                onClick={() => { if (newBudgetCat) handleSaveBudget(newBudgetCat, newBudgetAmount, "income"); }}
+                data-testid="save-income-budget">
+                <Check className="w-4 h-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="text-gray-500 shrink-0"
+                onClick={() => { setShowAddIncomeBudget(false); setNewBudgetCat(""); setNewBudgetAmount(""); }}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {incomeBudgetComparison.filter(i => i.projected > 0 || i.actual > 0).length > 0 ? (
+            incomeBudgetComparison
+              .filter(item => item.projected > 0 || item.actual > 0)
+              .map((item) => {
+                const pct = item.projected > 0 ? Math.min((item.actual / item.projected) * 100, 150) : 0;
+                const isUnder = item.over_budget;
+                return (
+                  <div key={item.category} className="group p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
+                    data-testid={`income-budget-${item.category}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-white">{item.category}</span>
+                      {item.budget_id && (
+                        <button onClick={() => handleDeleteBudget(item.budget_id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="w-3 h-3 text-gray-600 hover:text-red-400" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
+                      <div className={`h-full rounded-full transition-all duration-500 ${
+                        isUnder ? 'bg-red-400/80' : 'bg-green-400/80'
+                      }`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">
+                        Esperado: <span className="font-mono text-gray-400">{formatCurrency(item.projected)}</span>
+                      </span>
+                      <span className={`font-mono font-medium ${isUnder ? 'text-red-400' : 'text-green-400'}`}>
+                        Recibido: {formatCurrency(item.actual)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+          ) : (
+            <div className="py-6 text-center">
+              <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-600" />
+              <p className="text-sm text-gray-600">No hay ingresos esperados configurados</p>
             </div>
           )}
         </CardContent>

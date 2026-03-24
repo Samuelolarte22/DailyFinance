@@ -269,11 +269,11 @@ const Landing = () => {
       <footer className="py-8 px-4 border-t border-[#2a3444]">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-[#D4AF37] text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>LD</span>
-            <span className="text-gray-400 text-sm">Finance © 2026</span>
+            <AnimatedLogo size="small" />
+            <span className="text-gray-400 text-sm">© 2026</span>
           </div>
-          <p className="text-xs text-gray-500">
-            Tu aliado en finanzas personales
+          <p className="text-sm text-gray-400">
+            Decisiones financieras inteligentes, resultados reales
           </p>
         </div>
       </footer>

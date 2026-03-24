@@ -20,7 +20,8 @@ import {
   User,
   LogOut,
   Menu,
-  ShieldCheck
+  ShieldCheck,
+  Users
 } from "lucide-react";
 import AnimatedLogo from "./AnimatedLogo";
 
@@ -35,6 +36,7 @@ const Layout = ({ children }) => {
     { name: "Deudas", href: "/debts", icon: CreditCard },
     { name: "Ahorros", href: "/savings", icon: Target },
     { name: "Reportes", href: "/reports", icon: BarChart3 },
+    { name: "Comunidad", href: "/community", icon: Users },
   ];
 
   // Add admin link if user is admin
@@ -195,12 +197,9 @@ const Layout = ({ children }) => {
       <footer className="border-t border-[#2a3444] mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-[#D4AF37] text-xl font-bold" style={{ fontFamily: 'Playfair Display, serif' }}>LD</span>
-              <span className="text-gray-500 text-sm">Finance © 2026</span>
-            </div>
-            <p className="text-xs text-gray-500 text-center sm:text-right">
-              Tu aliado en finanzas personales
+            <AnimatedLogo size="small" />
+            <p className="text-sm text-gray-400 text-center sm:text-right">
+              Decisiones financieras inteligentes, resultados reales
             </p>
           </div>
         </div>

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+import requests
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +30,41 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ============== OBJECT STORAGE ==============
+
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "ldfinance"
+storage_key = None
+
+def init_storage():
+    global storage_key
+    if storage_key:
+        return storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    storage_key = resp.json()["storage_key"]
+    return storage_key
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60
+    )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
 # ============== MODELOS ==============
 
@@ -61,6 +97,7 @@ class Transaction(BaseModel):
     amount: float
     description: Optional[str] = None
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    bank: Optional[str] = None
 
 class TransactionCreate(BaseModel):
     type: str
@@ -68,6 +105,7 @@ class TransactionCreate(BaseModel):
     amount: float
     description: Optional[str] = None
     date: Optional[str] = None
+    bank: Optional[str] = None
 
 class Debt(BaseModel):
     debt_id: str = Field(default_factory=lambda: f"debt_{uuid.uuid4().hex[:12]}")
@@ -154,6 +192,28 @@ class MessageCreate(BaseModel):
 class BudgetCreate(BaseModel):
     category: str
     projected_amount: float
+    budget_type: Optional[str] = "expense"  # "expense" or "income"
+
+# ============== BANK MODELS ==============
+
+class BankCreate(BaseModel):
+    name: str
+
+# ============== SOCIAL/CONNECTION MODELS ==============
+
+class ConnectionRequest(BaseModel):
+    to_user_id: str
+
+class SharedTransactionCreate(BaseModel):
+    type: str
+    category: str
+    amount: float
+    description: Optional[str] = None
+    date: Optional[str] = None
+    bank: Optional[str] = None
+    shared_with: str  # user_id of the friend
+    my_percentage: float  # 0-100
+    friend_percentage: float  # 0-100
 
 # ============== AUTH HELPERS basado en framework ==============
 
@@ -227,6 +287,7 @@ async def exchange_session(request: Request, response: Response):
             "picture": auth_data.get("picture"),
             "has_completed_survey": False,
             "is_admin": is_admin,
+            "is_public": False,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(new_user)
@@ -753,6 +814,7 @@ async def admin_delete_user(user_id: str, request: Request):
     await db.categories.delete_many({"user_id": user_id})
     await db.advisor_messages.delete_many({"user_id": user_id})
     await db.budgets.delete_many({"user_id": user_id})
+    await db.banks.delete_many({"user_id": user_id})
     await db.users.delete_one({"user_id": user_id})
     
     return {
@@ -814,13 +876,13 @@ async def upsert_budget(budget_data: BudgetCreate, request: Request):
     user = await get_current_user(request)
     
     existing = await db.budgets.find_one(
-        {"user_id": user["user_id"], "category": budget_data.category},
+        {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type},
         {"_id": 0}
     )
     
     if existing:
         await db.budgets.update_one(
-            {"user_id": user["user_id"], "category": budget_data.category},
+            {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type},
             {"$set": {"projected_amount": budget_data.projected_amount}}
         )
         return {"message": "Presupuesto actualizado", "budget_id": existing["budget_id"]}
@@ -831,6 +893,7 @@ async def upsert_budget(budget_data: BudgetCreate, request: Request):
         "user_id": user["user_id"],
         "category": budget_data.category,
         "projected_amount": budget_data.projected_amount,
+        "budget_type": budget_data.budget_type,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.budgets.insert_one(doc)
@@ -846,21 +909,25 @@ async def delete_budget(budget_id: str, request: Request):
     return {"message": "Presupuesto eliminado"}
 
 @api_router.get("/budgets/comparison")
-async def get_budget_comparison(request: Request, month: Optional[str] = None):
-    """Get budget vs actual spending for each category in a month"""
+async def get_budget_comparison(request: Request, month: Optional[str] = None, budget_type: Optional[str] = "expense"):
+    """Get budget vs actual spending/income for each category in a month"""
     user = await get_current_user(request)
     
     if not month:
         now = datetime.now(timezone.utc)
         month = f"{now.year}-{str(now.month).zfill(2)}"
     
-    # Get budgets
-    budgets = await db.budgets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    # Get budgets of the specified type
+    budgets = await db.budgets.find(
+        {"user_id": user["user_id"], "budget_type": budget_type},
+        {"_id": 0}
+    ).to_list(100)
     budget_map = {b["category"]: b for b in budgets}
     
-    # Get expense transactions for the month
+    # Get transactions of the matching type for the month
+    txn_type = budget_type  # "expense" or "income"
     all_txns = await db.transactions.find(
-        {"user_id": user["user_id"], "type": "expense"},
+        {"user_id": user["user_id"], "type": txn_type},
         {"_id": 0}
     ).to_list(5000)
     
@@ -880,16 +947,660 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None):
         projected = budget_map.get(cat, {}).get("projected_amount", 0)
         actual = category_totals.get(cat, 0)
         budget_id = budget_map.get(cat, {}).get("budget_id")
+        
+        if budget_type == "expense":
+            over = actual > projected if projected > 0 else False
+            diff = projected - actual
+        else:
+            over = actual < projected if projected > 0 else False
+            diff = actual - projected
+        
         comparison.append({
             "category": cat,
             "projected": projected,
             "actual": round(actual),
-            "difference": round(projected - actual),
-            "over_budget": actual > projected if projected > 0 else False,
+            "difference": round(diff),
+            "over_budget": over,
             "budget_id": budget_id
         })
     
     return comparison
+
+# ============== BANK ENDPOINTS ==============
+
+@api_router.get("/banks")
+async def get_banks(request: Request):
+    """Get user's banks"""
+    user = await get_current_user(request)
+    banks = await db.banks.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
+    return banks
+
+@api_router.post("/banks")
+async def create_bank(bank_data: BankCreate, request: Request):
+    """Add a bank"""
+    user = await get_current_user(request)
+    bank_id = f"bank_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "bank_id": bank_id,
+        "user_id": user["user_id"],
+        "name": bank_data.name,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.banks.insert_one(doc)
+    return {"message": "Banco agregado", "bank_id": bank_id}
+
+@api_router.delete("/banks/{bank_id}")
+async def delete_bank(bank_id: str, request: Request):
+    """Delete a bank"""
+    user = await get_current_user(request)
+    result = await db.banks.delete_one({"bank_id": bank_id, "user_id": user["user_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Banco no encontrado")
+    return {"message": "Banco eliminado"}
+
+# ============== ADMIN VIEW/EDIT USER DATA ==============
+
+@api_router.get("/admin/users/{user_id}/dashboard")
+async def admin_get_user_dashboard(user_id: str, request: Request):
+    """Admin gets a user's full dashboard data"""
+    await get_admin_user(request)
+    
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    transactions = await db.transactions.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+    debts = await db.debts.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    savings = await db.savings_goals.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    
+    total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
+    total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
+    total_debt = sum(d["current_amount"] for d in debts)
+    total_savings = sum(s["current_amount"] for s in savings)
+    
+    return {
+        "user": user,
+        "transactions": transactions,
+        "debts": debts,
+        "savings": savings,
+        "summary": {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "balance": total_income - total_expenses,
+            "total_debt": total_debt,
+            "total_savings": total_savings
+        }
+    }
+
+@api_router.post("/admin/users/{user_id}/debts")
+async def admin_create_user_debt(user_id: str, debt_data: DebtCreate, request: Request):
+    """Admin creates a debt for a user"""
+    await get_admin_user(request)
+    
+    data = debt_data.model_dump()
+    if data.get("num_installments") and data["num_installments"] > 0 and not data.get("min_payment"):
+        P = data["current_amount"]
+        n = data["num_installments"]
+        annual_rate = data.get("interest_rate", 0)
+        if annual_rate > 0:
+            r = annual_rate / 100 / 12
+            data["min_payment"] = round(P * (r * (1 + r) ** n) / ((1 + r) ** n - 1))
+        else:
+            data["min_payment"] = round(P / n)
+    
+    debt = Debt(user_id=user_id, **data)
+    doc = debt.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    await db.debts.insert_one(doc)
+    return {"message": "Deuda creada", "debt_id": debt.debt_id}
+
+@api_router.put("/admin/users/{user_id}/debts/{debt_id}")
+async def admin_update_user_debt(user_id: str, debt_id: str, debt_data: DebtCreate, request: Request):
+    """Admin updates a user's debt"""
+    await get_admin_user(request)
+    
+    data = debt_data.model_dump()
+    if data.get("num_installments") and data["num_installments"] > 0 and not data.get("min_payment"):
+        P = data["current_amount"]
+        n = data["num_installments"]
+        annual_rate = data.get("interest_rate", 0)
+        if annual_rate > 0:
+            r = annual_rate / 100 / 12
+            data["min_payment"] = round(P * (r * (1 + r) ** n) / ((1 + r) ** n - 1))
+        else:
+            data["min_payment"] = round(P / n)
+    
+    result = await db.debts.update_one(
+        {"debt_id": debt_id, "user_id": user_id},
+        {"$set": data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+    return {"message": "Deuda actualizada"}
+
+@api_router.delete("/admin/users/{user_id}/debts/{debt_id}")
+async def admin_delete_user_debt(user_id: str, debt_id: str, request: Request):
+    """Admin deletes a user's debt"""
+    await get_admin_user(request)
+    result = await db.debts.delete_one({"debt_id": debt_id, "user_id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+    return {"message": "Deuda eliminada"}
+
+@api_router.put("/admin/users/{user_id}/transactions/{transaction_id}")
+async def admin_update_transaction(user_id: str, transaction_id: str, txn_data: TransactionCreate, request: Request):
+    """Admin updates a user's transaction"""
+    await get_admin_user(request)
+    data = txn_data.model_dump()
+    result = await db.transactions.update_one(
+        {"transaction_id": transaction_id, "user_id": user_id},
+        {"$set": data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Transaccion no encontrada")
+    return {"message": "Transaccion actualizada"}
+
+@api_router.delete("/admin/users/{user_id}/transactions/{transaction_id}")
+async def admin_delete_transaction(user_id: str, transaction_id: str, request: Request):
+    """Admin deletes a user's transaction"""
+    await get_admin_user(request)
+    result = await db.transactions.delete_one({"transaction_id": transaction_id, "user_id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Transaccion no encontrada")
+    return {"message": "Transaccion eliminada"}
+
+@api_router.get("/admin/users/{user_id}/savings")
+async def admin_get_user_savings(user_id: str, request: Request):
+    """Admin gets user's savings goals"""
+    await get_admin_user(request)
+    savings = await db.savings_goals.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    return savings
+
+@api_router.delete("/admin/users/{user_id}/savings/{goal_id}")
+async def admin_delete_user_saving(user_id: str, goal_id: str, request: Request):
+    """Admin deletes a user's saving goal"""
+    await get_admin_user(request)
+    result = await db.savings_goals.delete_one({"goal_id": goal_id, "user_id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Meta no encontrada")
+    return {"message": "Meta eliminada"}
+
+# ============== SOCIAL/CONNECTION ENDPOINTS ==============
+
+@api_router.put("/profile/visibility")
+async def toggle_profile_visibility(request: Request):
+    """Toggle public/private profile"""
+    user = await get_current_user(request)
+    current = user.get("is_public", False)
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"is_public": not current}}
+    )
+    return {"message": "Visibilidad actualizada", "is_public": not current}
+
+@api_router.get("/community/users")
+async def list_community_users(request: Request):
+    """List all public users + connected users"""
+    user = await get_current_user(request)
+    
+    # Get all users (public or connected)
+    all_users = await db.users.find(
+        {"user_id": {"$ne": user["user_id"]}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1, "is_public": 1}
+    ).to_list(500)
+    
+    # Get connections involving this user
+    connections = await db.connections.find(
+        {"$or": [
+            {"from_user_id": user["user_id"]},
+            {"to_user_id": user["user_id"]}
+        ]},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Build connection map
+    conn_map = {}
+    for c in connections:
+        other_id = c["to_user_id"] if c["from_user_id"] == user["user_id"] else c["from_user_id"]
+        conn_map[other_id] = c
+    
+    result = []
+    for u in all_users:
+        conn = conn_map.get(u["user_id"])
+        result.append({
+            **u,
+            "connection_status": conn["status"] if conn else None,
+            "connection_id": conn["connection_id"] if conn else None,
+            "connection_initiated_by": conn.get("from_user_id") if conn else None
+        })
+    
+    return result
+
+@api_router.post("/connections/request")
+async def send_connection_request(req_data: ConnectionRequest, request: Request):
+    """Send a connection request"""
+    user = await get_current_user(request)
+    
+    if req_data.to_user_id == user["user_id"]:
+        raise HTTPException(status_code=400, detail="No puedes conectarte contigo mismo")
+    
+    # Check if connection already exists
+    existing = await db.connections.find_one({
+        "$or": [
+            {"from_user_id": user["user_id"], "to_user_id": req_data.to_user_id},
+            {"from_user_id": req_data.to_user_id, "to_user_id": user["user_id"]}
+        ]
+    })
+    
+    if existing:
+        if existing.get("status") == "rejected":
+            # Allow resending rejected request
+            await db.connections.update_one(
+                {"connection_id": existing["connection_id"]},
+                {"$set": {
+                    "status": "pending",
+                    "from_user_id": user["user_id"],
+                    "to_user_id": req_data.to_user_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            # Create notification
+            await db.notifications.insert_one({
+                "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+                "user_id": req_data.to_user_id,
+                "type": "connection_request",
+                "from_user_id": user["user_id"],
+                "from_user_name": user.get("name", "Usuario"),
+                "message": f"{user.get('name', 'Alguien')} te ha enviado una solicitud de conexion",
+                "read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+            return {"message": "Solicitud reenviada"}
+        elif existing.get("status") == "accepted":
+            raise HTTPException(status_code=400, detail="Ya estan conectados")
+        else:
+            raise HTTPException(status_code=400, detail="Ya existe una solicitud pendiente")
+    
+    conn_id = f"conn_{uuid.uuid4().hex[:12]}"
+    await db.connections.insert_one({
+        "connection_id": conn_id,
+        "from_user_id": user["user_id"],
+        "to_user_id": req_data.to_user_id,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Create notification
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": req_data.to_user_id,
+        "type": "connection_request",
+        "from_user_id": user["user_id"],
+        "from_user_name": user.get("name", "Usuario"),
+        "message": f"{user.get('name', 'Alguien')} te ha enviado una solicitud de conexion",
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Solicitud enviada", "connection_id": conn_id}
+
+@api_router.put("/connections/{connection_id}/accept")
+async def accept_connection(connection_id: str, request: Request):
+    """Accept a connection request"""
+    user = await get_current_user(request)
+    
+    conn = await db.connections.find_one(
+        {"connection_id": connection_id, "to_user_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    )
+    if not conn:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    await db.connections.update_one(
+        {"connection_id": connection_id},
+        {"$set": {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Notify sender
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": conn["from_user_id"],
+        "type": "connection_accepted",
+        "from_user_id": user["user_id"],
+        "from_user_name": user.get("name", "Usuario"),
+        "message": f"{user.get('name', 'Alguien')} acepto tu solicitud de conexion",
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Conexion aceptada"}
+
+@api_router.put("/connections/{connection_id}/reject")
+async def reject_connection(connection_id: str, request: Request):
+    """Reject a connection request"""
+    user = await get_current_user(request)
+    
+    conn = await db.connections.find_one(
+        {"connection_id": connection_id, "to_user_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    )
+    if not conn:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    await db.connections.update_one(
+        {"connection_id": connection_id},
+        {"$set": {"status": "rejected", "rejected_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Solicitud rechazada"}
+
+@api_router.get("/connections")
+async def get_connections(request: Request):
+    """Get user's accepted connections"""
+    user = await get_current_user(request)
+    
+    connections = await db.connections.find(
+        {"$or": [
+            {"from_user_id": user["user_id"], "status": "accepted"},
+            {"to_user_id": user["user_id"], "status": "accepted"}
+        ]},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Get friend user data
+    friend_ids = []
+    for c in connections:
+        friend_id = c["to_user_id"] if c["from_user_id"] == user["user_id"] else c["from_user_id"]
+        friend_ids.append(friend_id)
+    
+    friends = []
+    if friend_ids:
+        friend_users = await db.users.find(
+            {"user_id": {"$in": friend_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1}
+        ).to_list(500)
+        friends = friend_users
+    
+    return friends
+
+@api_router.get("/notifications")
+async def get_notifications(request: Request):
+    """Get user's notifications"""
+    user = await get_current_user(request)
+    notifs = await db.notifications.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return notifs
+
+@api_router.put("/notifications/read")
+async def mark_notifications_read(request: Request):
+    """Mark all notifications as read"""
+    user = await get_current_user(request)
+    await db.notifications.update_many(
+        {"user_id": user["user_id"], "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Notificaciones marcadas como leidas"}
+
+@api_router.post("/transactions/shared")
+async def create_shared_transaction(txn_data: SharedTransactionCreate, request: Request):
+    """Create a shared transaction"""
+    user = await get_current_user(request)
+    
+    # Verify they are connected
+    conn = await db.connections.find_one({
+        "$or": [
+            {"from_user_id": user["user_id"], "to_user_id": txn_data.shared_with, "status": "accepted"},
+            {"from_user_id": txn_data.shared_with, "to_user_id": user["user_id"], "status": "accepted"}
+        ]
+    })
+    if not conn:
+        raise HTTPException(status_code=400, detail="No estan conectados")
+    
+    # Create the shared transaction request
+    shared_id = f"shared_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    doc = {
+        "shared_id": shared_id,
+        "creator_id": user["user_id"],
+        "creator_name": user.get("name", "Usuario"),
+        "shared_with_id": txn_data.shared_with,
+        "type": txn_data.type,
+        "category": txn_data.category,
+        "total_amount": txn_data.amount,
+        "description": txn_data.description,
+        "date": txn_data.date or now.isoformat(),
+        "bank": txn_data.bank,
+        "creator_percentage": txn_data.my_percentage,
+        "friend_percentage": txn_data.friend_percentage,
+        "creator_amount": round(txn_data.amount * txn_data.my_percentage / 100),
+        "friend_amount": round(txn_data.amount * txn_data.friend_percentage / 100),
+        "status": "pending",
+        "created_at": now.isoformat()
+    }
+    await db.shared_transactions.insert_one(doc)
+    
+    # Create creator's transaction immediately
+    my_txn = Transaction(
+        user_id=user["user_id"],
+        type=txn_data.type,
+        category=txn_data.category,
+        amount=doc["creator_amount"],
+        description=f"[Compartido] {txn_data.description or txn_data.category}",
+        bank=txn_data.bank
+    )
+    my_doc = my_txn.model_dump()
+    my_doc["date"] = txn_data.date or now.isoformat()
+    my_doc["shared_id"] = shared_id
+    await db.transactions.insert_one(my_doc)
+    
+    # Notify the friend
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": txn_data.shared_with,
+        "type": "shared_transaction",
+        "from_user_id": user["user_id"],
+        "from_user_name": user.get("name", "Usuario"),
+        "shared_id": shared_id,
+        "message": f"{user.get('name', 'Alguien')} compartio un {txn_data.type} de ${round(txn_data.amount):,} contigo ({txn_data.friend_percentage}%)",
+        "read": False,
+        "created_at": now.isoformat()
+    })
+    
+    return {"message": "Transaccion compartida creada", "shared_id": shared_id}
+
+@api_router.put("/transactions/shared/{shared_id}/accept")
+async def accept_shared_transaction(shared_id: str, request: Request):
+    """Accept a shared transaction"""
+    user = await get_current_user(request)
+    
+    shared = await db.shared_transactions.find_one(
+        {"shared_id": shared_id, "shared_with_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    )
+    if not shared:
+        raise HTTPException(status_code=404, detail="Transaccion compartida no encontrada")
+    
+    # Create the friend's transaction
+    now = datetime.now(timezone.utc)
+    friend_txn = Transaction(
+        user_id=user["user_id"],
+        type=shared["type"],
+        category=shared["category"],
+        amount=shared["friend_amount"],
+        description=f"[Compartido] {shared.get('description') or shared['category']}",
+        bank=shared.get("bank")
+    )
+    f_doc = friend_txn.model_dump()
+    f_doc["date"] = shared.get("date", now.isoformat())
+    f_doc["shared_id"] = shared_id
+    await db.transactions.insert_one(f_doc)
+    
+    await db.shared_transactions.update_one(
+        {"shared_id": shared_id},
+        {"$set": {"status": "accepted"}}
+    )
+    
+    # Notify creator
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": shared["creator_id"],
+        "type": "shared_accepted",
+        "from_user_id": user["user_id"],
+        "from_user_name": user.get("name", "Usuario"),
+        "message": f"{user.get('name', 'Alguien')} acepto la transaccion compartida",
+        "read": False,
+        "created_at": now.isoformat()
+    })
+    
+    return {"message": "Transaccion aceptada"}
+
+@api_router.put("/transactions/shared/{shared_id}/reject")
+async def reject_shared_transaction(shared_id: str, request: Request):
+    """Reject a shared transaction"""
+    user = await get_current_user(request)
+    
+    shared = await db.shared_transactions.find_one(
+        {"shared_id": shared_id, "shared_with_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    )
+    if not shared:
+        raise HTTPException(status_code=404, detail="Transaccion compartida no encontrada")
+    
+    await db.shared_transactions.update_one(
+        {"shared_id": shared_id},
+        {"$set": {"status": "rejected"}}
+    )
+    
+    return {"message": "Transaccion rechazada"}
+
+@api_router.get("/transactions/shared")
+async def get_shared_transactions(request: Request):
+    """Get pending shared transactions for user"""
+    user = await get_current_user(request)
+    pending = await db.shared_transactions.find(
+        {"shared_with_id": user["user_id"], "status": "pending"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return pending
+
+# ============== DOCUMENT ENDPOINTS ==============
+
+@api_router.post("/documents/upload")
+async def upload_document(request: Request, file: UploadFile = File(...)):
+    """Upload a document"""
+    user = await get_current_user(request)
+    
+    # Validate file size (max 5MB)
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Archivo demasiado grande (max 5MB)")
+    
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    allowed_exts = {"pdf", "jpg", "jpeg", "png", "doc", "docx", "xls", "xlsx", "txt"}
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido. Permitidos: {', '.join(allowed_exts)}")
+    
+    path = f"{APP_NAME}/documents/{user['user_id']}/{uuid.uuid4().hex[:12]}.{ext}"
+    
+    try:
+        result = put_object(path, data, file.content_type or "application/octet-stream")
+    except Exception as e:
+        logger.error(f"Storage upload error: {e}")
+        raise HTTPException(status_code=500, detail="Error al subir archivo")
+    
+    doc = {
+        "file_id": f"file_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "storage_path": result["path"],
+        "original_filename": file.filename,
+        "content_type": file.content_type,
+        "size": result.get("size", len(data)),
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.documents.insert_one(doc)
+    
+    return {"message": "Documento subido", "file_id": doc["file_id"], "filename": file.filename}
+
+@api_router.get("/documents")
+async def list_documents(request: Request):
+    """List user's documents"""
+    user = await get_current_user(request)
+    docs = await db.documents.find(
+        {"user_id": user["user_id"], "is_deleted": False},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return docs
+
+@api_router.get("/documents/{file_id}/download")
+async def download_document(file_id: str, request: Request):
+    """Download a document"""
+    user = await get_current_user(request)
+    
+    doc = await db.documents.find_one(
+        {"file_id": file_id, "user_id": user["user_id"], "is_deleted": False},
+        {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    
+    try:
+        data, content_type = get_object(doc["storage_path"])
+    except Exception as e:
+        logger.error(f"Storage download error: {e}")
+        raise HTTPException(status_code=500, detail="Error al descargar archivo")
+    
+    return Response(
+        content=data,
+        media_type=doc.get("content_type", content_type),
+        headers={"Content-Disposition": f"inline; filename=\"{doc['original_filename']}\""}
+    )
+
+@api_router.delete("/documents/{file_id}")
+async def delete_document(file_id: str, request: Request):
+    """Soft-delete a document"""
+    user = await get_current_user(request)
+    result = await db.documents.update_one(
+        {"file_id": file_id, "user_id": user["user_id"]},
+        {"$set": {"is_deleted": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    return {"message": "Documento eliminado"}
+
+@api_router.get("/admin/users/{user_id}/documents")
+async def admin_list_user_documents(user_id: str, request: Request):
+    """Admin lists a user's documents"""
+    await get_admin_user(request)
+    docs = await db.documents.find(
+        {"user_id": user_id, "is_deleted": False},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return docs
+
+@api_router.get("/admin/users/{user_id}/documents/{file_id}/download")
+async def admin_download_user_document(user_id: str, file_id: str, request: Request):
+    """Admin downloads a user's document"""
+    await get_admin_user(request)
+    doc = await db.documents.find_one(
+        {"file_id": file_id, "user_id": user_id, "is_deleted": False},
+        {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    try:
+        data, content_type = get_object(doc["storage_path"])
+    except Exception as e:
+        logger.error(f"Storage download error: {e}")
+        raise HTTPException(status_code=500, detail="Error al descargar archivo")
+    return Response(
+        content=data,
+        media_type=doc.get("content_type", content_type),
+        headers={"Content-Disposition": f"inline; filename=\"{doc['original_filename']}\""}
+    )
 
 # ============== DEBT SNOWBALL ENDPOINT ==============
 
@@ -1170,6 +1881,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed (will retry on first use): {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

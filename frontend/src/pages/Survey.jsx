@@ -15,6 +15,7 @@ import {
   Target,
   HelpCircle
 } from "lucide-react";
+import CurrencyInput from "../components/CurrencyInput";
 
 const Survey = () => {
   const navigate = useNavigate();
@@ -43,10 +44,10 @@ const Survey = () => {
       await axios.post(
         `${API}/survey`,
         {
-          monthly_income: parseFloat(formData.monthly_income) || 0,
-          monthly_expenses: parseFloat(formData.monthly_expenses) || 0,
-          current_savings: parseFloat(formData.current_savings) || 0,
-          total_debt: parseFloat(formData.total_debt) || 0,
+          monthly_income: parseInt(formData.monthly_income) || 0,
+          monthly_expenses: parseInt(formData.monthly_expenses) || 0,
+          current_savings: parseInt(formData.current_savings) || 0,
+          total_debt: parseInt(formData.total_debt) || 0,
           financial_knowledge: formData.financial_knowledge,
           main_financial_goal: formData.main_financial_goal,
           biggest_challenge: formData.biggest_challenge
@@ -155,18 +156,12 @@ const Survey = () => {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-gray-300" htmlFor="monthly_income">Ingreso mensual aproximado (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    id="monthly_income"
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={formData.monthly_income}
-                    onChange={(e) => handleInputChange("monthly_income", e.target.value)}
-                    data-testid="input-monthly-income"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={formData.monthly_income}
+                  onChange={(v) => handleInputChange("monthly_income", v)}
+                  data-testid="input-monthly-income"
+                />
                 <p className="text-xs text-gray-500">
                   Incluye salario, mesada, becas, etc.
                 </p>
@@ -174,20 +169,14 @@ const Survey = () => {
 
               <div className="space-y-2">
                 <Label className="text-gray-300" htmlFor="monthly_expenses">Gasto mensual aproximado (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    id="monthly_expenses"
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={formData.monthly_expenses}
-                    onChange={(e) => handleInputChange("monthly_expenses", e.target.value)}
-                    data-testid="input-monthly-expenses"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={formData.monthly_expenses}
+                  onChange={(v) => handleInputChange("monthly_expenses", v)}
+                  data-testid="input-monthly-expenses"
+                />
                 <p className="text-xs text-gray-500">
-                  Transporte, alimentación, ocio, etc.
+                  Transporte, alimentacion, ocio, etc.
                 </p>
               </div>
             </CardContent>
@@ -211,36 +200,24 @@ const Survey = () => {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-gray-300" htmlFor="current_savings">Ahorros actuales (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    id="current_savings"
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={formData.current_savings}
-                    onChange={(e) => handleInputChange("current_savings", e.target.value)}
-                    data-testid="input-current-savings"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={formData.current_savings}
+                  onChange={(v) => handleInputChange("current_savings", v)}
+                  data-testid="input-current-savings"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-gray-300" htmlFor="total_debt">Deuda total actual (COP)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    id="total_debt"
-                    type="number"
-                    placeholder="0"
-                    className="pl-8 font-mono bg-[#141b2d] border-[#2a3444] text-white"
-                    value={formData.total_debt}
-                    onChange={(e) => handleInputChange("total_debt", e.target.value)}
-                    data-testid="input-total-debt"
-                  />
-                </div>
+                <CurrencyInput
+                  className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={formData.total_debt}
+                  onChange={(v) => handleInputChange("total_debt", v)}
+                  data-testid="input-total-debt"
+                />
                 <p className="text-xs text-gray-500">
-                  Préstamos, tarjetas de crédito, deudas con amigos/familia, etc.
+                  Prestamos, tarjetas de credito, deudas con amigos/familia, etc.
                 </p>
               </div>
             </CardContent>

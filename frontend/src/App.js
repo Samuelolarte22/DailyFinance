@@ -14,6 +14,7 @@ import Survey from "./pages/Survey";
 import Profile from "./pages/Profile";
 import AuthCallback from "./pages/AuthCallback";
 import Admin from "./pages/Admin";
+import Community from "./pages/Community";
 
 // Components
 import Layout from "./components/Layout";
@@ -197,6 +198,16 @@ function AppRouter() {
           <ProtectedRoute>
             <Layout>
               <Admin />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/community"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Community />
             </Layout>
           </ProtectedRoute>
         }
