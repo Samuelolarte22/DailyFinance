@@ -577,13 +577,85 @@ async def get_reports(request: Request):
         else:
             monthly_data[date_str]["expense"] += txn["amount"]
     
+    # Annual budget comparison
+    current_year = str(datetime.now(timezone.utc).year)
+    budgets = await db.budgets.find(
+        {"user_id": user["user_id"]}, {"_id": 0}
+    ).to_list(200)
+    
+    # Group budgets by type
+    expense_budgets = {b["category"]: b["projected_amount"] for b in budgets if b.get("budget_type") == "expense"}
+    income_budgets = {b["category"]: b["projected_amount"] for b in budgets if b.get("budget_type") == "income"}
+    
+    # Sum actual transactions for the current year by category
+    year_expense_totals = {}
+    year_income_totals = {}
+    for txn in transactions:
+        txn_year = txn["date"][:4] if isinstance(txn["date"], str) else str(txn["date"].year)
+        if txn_year == current_year:
+            cat = txn["category"]
+            if txn["type"] == "expense":
+                year_expense_totals[cat] = year_expense_totals.get(cat, 0) + txn["amount"]
+            else:
+                year_income_totals[cat] = year_income_totals.get(cat, 0) + txn["amount"]
+    
+    # Build annual comparison (projected * 12 vs actual year total)
+    annual_expense_comparison = []
+    all_expense_cats = set(list(expense_budgets.keys()) + list(year_expense_totals.keys()))
+    for cat in sorted(all_expense_cats):
+        monthly_proj = expense_budgets.get(cat, 0)
+        annual_proj = round(monthly_proj * 12)
+        actual = round(year_expense_totals.get(cat, 0))
+        over = actual > annual_proj if annual_proj > 0 else actual > 0
+        annual_expense_comparison.append({
+            "category": cat,
+            "monthly_projected": round(monthly_proj),
+            "annual_projected": annual_proj,
+            "annual_actual": actual,
+            "difference": annual_proj - actual,
+            "over_budget": over
+        })
+    
+    annual_income_comparison = []
+    all_income_cats = set(list(income_budgets.keys()) + list(year_income_totals.keys()))
+    for cat in sorted(all_income_cats):
+        monthly_proj = income_budgets.get(cat, 0)
+        annual_proj = round(monthly_proj * 12)
+        actual = round(year_income_totals.get(cat, 0))
+        under = actual < annual_proj if annual_proj > 0 else False
+        annual_income_comparison.append({
+            "category": cat,
+            "monthly_projected": round(monthly_proj),
+            "annual_projected": annual_proj,
+            "annual_actual": actual,
+            "difference": actual - annual_proj,
+            "over_budget": under
+        })
+    
+    # Annual totals
+    total_annual_expense_projected = sum(i["annual_projected"] for i in annual_expense_comparison)
+    total_annual_expense_actual = sum(i["annual_actual"] for i in annual_expense_comparison)
+    total_annual_income_projected = sum(i["annual_projected"] for i in annual_income_comparison)
+    total_annual_income_actual = sum(i["annual_actual"] for i in annual_income_comparison)
+    
     return {
         "before": before,
         "after": after,
         "monthly_breakdown": monthly_data,
         "transactions_count": len(transactions),
         "debts_count": len(debts),
-        "savings_goals_count": len(savings)
+        "savings_goals_count": len(savings),
+        "annual_comparison": {
+            "year": current_year,
+            "expenses": annual_expense_comparison,
+            "income": annual_income_comparison,
+            "totals": {
+                "expense_projected": total_annual_expense_projected,
+                "expense_actual": total_annual_expense_actual,
+                "income_projected": total_annual_income_projected,
+                "income_actual": total_annual_income_actual
+            }
+        }
     }
 
 # ============== DASHBOARD SUMMARY ==============

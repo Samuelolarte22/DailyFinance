@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { API } from "../App";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   TrendingUp, 
   TrendingDown, 
   ArrowRight,
   BarChart3,
   PiggyBank,
-  CreditCard
+  CreditCard,
+  Target,
+  Calendar
 } from "lucide-react";
 import { 
   BarChart, 
@@ -314,6 +317,169 @@ const Reports = () => {
                 <p className="text-xs text-muted-foreground mt-1">activas</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Annual Budget Comparison */}
+      {reportData?.annual_comparison && (
+        <Card data-testid="annual-comparison-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2" style={{ fontFamily: 'Epilogue, sans-serif' }}>
+              <Target className="w-5 h-5 text-[#D4AF37]" />
+              Proyectado vs Real — Anual {reportData.annual_comparison.year}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Presupuesto mensual x 12 comparado con el total gastado/recibido en el año
+            </p>
+          </CardHeader>
+          <CardContent>
+            {/* Annual totals summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              <div className="p-3 rounded-xl bg-red-500/10 text-center">
+                <p className="text-[10px] text-gray-400 mb-1">Gastos Proyectados</p>
+                <p className="font-mono font-semibold text-sm text-gray-300">
+                  {formatCurrency(reportData.annual_comparison.totals?.expense_projected || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-red-500/10 text-center">
+                <p className="text-[10px] text-gray-400 mb-1">Gastos Reales</p>
+                <p className="font-mono font-semibold text-sm text-red-400">
+                  {formatCurrency(reportData.annual_comparison.totals?.expense_actual || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-green-500/10 text-center">
+                <p className="text-[10px] text-gray-400 mb-1">Ingresos Esperados</p>
+                <p className="font-mono font-semibold text-sm text-gray-300">
+                  {formatCurrency(reportData.annual_comparison.totals?.income_projected || 0)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-green-500/10 text-center">
+                <p className="text-[10px] text-gray-400 mb-1">Ingresos Reales</p>
+                <p className="font-mono font-semibold text-sm text-green-400">
+                  {formatCurrency(reportData.annual_comparison.totals?.income_actual || 0)}
+                </p>
+              </div>
+            </div>
+
+            <Tabs defaultValue="expenses">
+              <TabsList className="bg-[#141b2d] border border-[#2a3444] h-8 mb-3">
+                <TabsTrigger value="expenses" className="text-xs data-[state=active]:bg-[#D4AF37] data-[state=active]:text-[#141b2d] h-6 px-3">
+                  Gastos
+                </TabsTrigger>
+                <TabsTrigger value="income" className="text-xs data-[state=active]:bg-green-500 data-[state=active]:text-white h-6 px-3">
+                  Ingresos
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="expenses" className="space-y-2">
+                {reportData.annual_comparison.expenses?.filter(i => i.annual_projected > 0 || i.annual_actual > 0).length > 0 ? (
+                  reportData.annual_comparison.expenses
+                    .filter(item => item.annual_projected > 0 || item.annual_actual > 0)
+                    .map((item) => {
+                      const pct = item.annual_projected > 0
+                        ? Math.min((item.annual_actual / item.annual_projected) * 100, 100)
+                        : (item.annual_actual > 0 ? 100 : 0);
+                      const isOver = item.over_budget;
+                      return (
+                        <div key={item.category} className="p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
+                          data-testid={`annual-expense-${item.category}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">{item.category}</span>
+                            {item.annual_projected > 0 && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
+                              }`}>
+                                {isOver
+                                  ? `Excedido: ${formatCurrency(Math.abs(item.difference))}`
+                                  : `Disponible: ${formatCurrency(item.difference)}`}
+                              </span>
+                            )}
+                            {item.annual_projected === 0 && item.annual_actual > 0 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
+                                Sin presupuesto
+                              </span>
+                            )}
+                          </div>
+                          <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
+                            <div className={`h-full rounded-full transition-all duration-500 ${
+                              isOver ? 'bg-red-400/80' : 'bg-green-400/80'
+                            }`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">
+                              Proyectado: <span className="font-mono text-gray-400">{formatCurrency(item.annual_projected)}</span>
+                              <span className="text-gray-600 ml-1">({formatCurrency(item.monthly_projected)}/mes)</span>
+                            </span>
+                            <span className={`font-mono font-medium ${isOver ? 'text-red-400' : 'text-green-400'}`}>
+                              Real: {formatCurrency(item.annual_actual)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="py-6 text-center text-gray-500">
+                    <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No hay gastos registrados este año</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="income" className="space-y-2">
+                {reportData.annual_comparison.income?.filter(i => i.annual_projected > 0 || i.annual_actual > 0).length > 0 ? (
+                  reportData.annual_comparison.income
+                    .filter(item => item.annual_projected > 0 || item.annual_actual > 0)
+                    .map((item) => {
+                      const pct = item.annual_projected > 0
+                        ? Math.min((item.annual_actual / item.annual_projected) * 100, 100)
+                        : (item.annual_actual > 0 ? 100 : 0);
+                      const isUnder = item.over_budget;
+                      return (
+                        <div key={item.category} className="p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
+                          data-testid={`annual-income-${item.category}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">{item.category}</span>
+                            {item.annual_projected > 0 && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                isUnder ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
+                              }`}>
+                                {isUnder
+                                  ? `Falta: ${formatCurrency(Math.abs(item.difference))}`
+                                  : `Superado: +${formatCurrency(item.difference)}`}
+                              </span>
+                            )}
+                            {item.annual_projected === 0 && item.annual_actual > 0 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
+                                Sin meta anual
+                              </span>
+                            )}
+                          </div>
+                          <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
+                            <div className={`h-full rounded-full transition-all duration-500 ${
+                              isUnder ? 'bg-red-400/80' : 'bg-green-400/80'
+                            }`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">
+                              Esperado: <span className="font-mono text-gray-400">{formatCurrency(item.annual_projected)}</span>
+                              <span className="text-gray-600 ml-1">({formatCurrency(item.monthly_projected)}/mes)</span>
+                            </span>
+                            <span className={`font-mono font-medium ${isUnder ? 'text-red-400' : 'text-green-400'}`}>
+                              Recibido: {formatCurrency(item.annual_actual)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="py-6 text-center text-gray-500">
+                    <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No hay ingresos registrados este año</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       )}
