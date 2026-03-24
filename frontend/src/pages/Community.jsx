@@ -116,7 +116,7 @@ const Community = () => {
 
   const filteredUsers = communityUsers.filter(u =>
     (u.is_public || u.connection_status === "accepted") &&
-    (u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()))
+    u.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const pendingRequests = communityUsers.filter(u => 
@@ -210,7 +210,6 @@ const Community = () => {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white truncate">{u.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
                 </div>
                 {u.connection_status === "accepted" ? (
                   <span className="text-xs px-3 py-1 rounded-full bg-green-500/10 text-green-400">Conectado</span>
@@ -245,7 +244,6 @@ const Community = () => {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-white truncate">{friend.name}</p>
-                <p className="text-xs text-gray-500 truncate">{friend.email}</p>
               </div>
               <span className="text-xs px-3 py-1 rounded-full bg-green-500/10 text-green-400">Conectado</span>
             </div>
