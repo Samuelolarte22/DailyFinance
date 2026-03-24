@@ -13,20 +13,18 @@ const AdvisorChat = ({ selectedMonth }) => {
   const [isTask, setIsTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
-  const isInitialLoad = useRef(true);
+  const shouldScroll = useRef(false);
 
   useEffect(() => {
-    isInitialLoad.current = true;
     fetchMessages();
   }, [selectedMonth]);
 
   useEffect(() => {
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false;
-      return;
+    if (shouldScroll.current) {
+      shouldScroll.current = false;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages]);
 
   const fetchMessages = async () => {
     try {
@@ -51,6 +49,7 @@ const AdvisorChat = ({ selectedMonth }) => {
       }, { withCredentials: true });
       setNewMessage("");
       setIsTask(false);
+      shouldScroll.current = true;
       fetchMessages();
     } catch (error) {
       console.error("Error sending message:", error);
