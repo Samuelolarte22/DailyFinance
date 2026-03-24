@@ -38,8 +38,11 @@ export const useAuth = () => {
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isImpersonating, setIsImpersonating] = useState(false);
-  const [impersonatedUser, setImpersonatedUser] = useState(null);
+  const [isImpersonating, setIsImpersonating] = useState(() => sessionStorage.getItem('is_impersonating') === 'true');
+  const [impersonatedUser, setImpersonatedUser] = useState(() => {
+    const stored = sessionStorage.getItem('impersonated_user');
+    return stored ? JSON.parse(stored) : null;
+  });
 
   const checkAuth = useCallback(async () => {
     try {
@@ -74,15 +77,12 @@ const AuthProvider = ({ children }) => {
   const startImpersonation = async (userId) => {
     try {
       const response = await axios.post(`${API}/admin/impersonate/${userId}`, {}, { withCredentials: true });
-      const { impersonation_token, user: targetUser } = response.data;
-      // Save admin's original session token
-      const adminSessionToken = document.cookie.split('; ').find(c => c.startsWith('session_token='))?.split('=')[1];
-      sessionStorage.setItem('admin_session_token', adminSessionToken || '');
-      sessionStorage.setItem('impersonation_token', impersonation_token);
+      const { user: targetUser } = response.data;
+      // Backend already set the new httponly cookie — just save state
       sessionStorage.setItem('admin_user', JSON.stringify(user));
-      // Set new cookie for impersonation
-      document.cookie = `session_token=${impersonation_token}; path=/; SameSite=Lax`;
-      // Fetch the impersonated user's full data
+      sessionStorage.setItem('is_impersonating', 'true');
+      sessionStorage.setItem('impersonated_user', JSON.stringify(targetUser));
+      // Fetch the impersonated user's full data using the new cookie
       const meResponse = await axios.get(`${API}/auth/me`, { withCredentials: true });
       setImpersonatedUser(targetUser);
       setIsImpersonating(true);
@@ -96,31 +96,22 @@ const AuthProvider = ({ children }) => {
 
   const stopImpersonation = async () => {
     try {
-      // Clean up impersonation session
-      const impToken = sessionStorage.getItem('impersonation_token');
-      if (impToken) {
-        await axios.post(`${API}/admin/stop-impersonation`, {}, { 
-          headers: { 'Authorization': `Bearer ${impToken}` }
-        });
-      }
-      // Restore admin session
-      const adminToken = sessionStorage.getItem('admin_session_token');
-      if (adminToken) {
-        document.cookie = `session_token=${adminToken}; path=/; SameSite=Lax`;
-      }
-      const adminUser = JSON.parse(sessionStorage.getItem('admin_user') || 'null');
-      sessionStorage.removeItem('admin_session_token');
-      sessionStorage.removeItem('impersonation_token');
+      // Backend restores admin cookie and deletes impersonation session
+      await axios.post(`${API}/admin/stop-impersonation`, {}, { withCredentials: true });
       sessionStorage.removeItem('admin_user');
+      sessionStorage.removeItem('is_impersonating');
+      sessionStorage.removeItem('impersonated_user');
       setIsImpersonating(false);
       setImpersonatedUser(null);
-      if (adminUser) {
-        setUser(adminUser);
-      } else {
-        await checkAuth();
-      }
+      // Re-fetch admin user from restored cookie
+      await checkAuth();
     } catch (error) {
       console.error("Stop impersonation error:", error);
+      sessionStorage.removeItem('admin_user');
+      sessionStorage.removeItem('is_impersonating');
+      sessionStorage.removeItem('impersonated_user');
+      setIsImpersonating(false);
+      setImpersonatedUser(null);
       await checkAuth();
     }
   };

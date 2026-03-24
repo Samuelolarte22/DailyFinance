@@ -1126,13 +1126,16 @@ async def admin_delete_user_saving(user_id: str, goal_id: str, request: Request)
     return {"message": "Meta eliminada"}
 
 @api_router.post("/admin/impersonate/{user_id}")
-async def admin_impersonate_user(user_id: str, request: Request, response: Response):
+async def admin_impersonate_user(user_id: str, request: Request):
     """Admin impersonates a user by creating a temporary session"""
     admin = await get_admin_user(request)
     
     target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not target_user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Save admin's current session token so we can restore it later
+    admin_session_token = request.cookies.get("session_token")
     
     # Create a temporary session for the target user
     imp_session_token = str(uuid.uuid4())
@@ -1141,37 +1144,67 @@ async def admin_impersonate_user(user_id: str, request: Request, response: Respo
         "user_id": user_id,
         "is_impersonation": True,
         "admin_user_id": admin["user_id"],
+        "admin_session_token": admin_session_token,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
     }
     await db.user_sessions.insert_one(session_doc)
     
-    return {
-        "impersonation_token": imp_session_token,
+    # Set the impersonation token as the active cookie (server-side)
+    resp = JSONResponse(content={
+        "message": "Impersonation started",
         "user": {
             "user_id": target_user["user_id"],
             "name": target_user.get("name", ""),
             "email": target_user.get("email", ""),
             "picture": target_user.get("picture", "")
         }
-    }
+    })
+    resp.set_cookie(
+        key="session_token",
+        value=imp_session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=2 * 60 * 60
+    )
+    return resp
 
 @api_router.post("/admin/stop-impersonation")
 async def admin_stop_impersonation(request: Request):
-    """Stop impersonation by deleting the impersonation session"""
+    """Stop impersonation and restore admin session"""
     session_token = request.cookies.get("session_token")
     if not session_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
+        return JSONResponse(content={"message": "No active session"}, status_code=400)
     
-    if session_token:
-        await db.user_sessions.delete_one({
-            "session_token": session_token,
-            "is_impersonation": True
-        })
+    # Find the impersonation session to get the admin's original token
+    imp_session = await db.user_sessions.find_one(
+        {"session_token": session_token, "is_impersonation": True},
+        {"_id": 0}
+    )
     
-    return {"message": "Impersonation ended"}
+    if not imp_session:
+        return JSONResponse(content={"message": "Not impersonating"}, status_code=400)
+    
+    admin_session_token = imp_session.get("admin_session_token")
+    
+    # Delete the impersonation session
+    await db.user_sessions.delete_one({"session_token": session_token})
+    
+    # Restore admin's original cookie
+    resp = JSONResponse(content={"message": "Impersonation ended"})
+    if admin_session_token:
+        resp.set_cookie(
+            key="session_token",
+            value=admin_session_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            path="/",
+            max_age=7 * 24 * 60 * 60
+        )
+    return resp
 
 
 # ============== SOCIAL/CONNECTION ENDPOINTS ==============
