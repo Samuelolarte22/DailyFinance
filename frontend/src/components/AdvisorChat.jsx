@@ -13,12 +13,18 @@ const AdvisorChat = ({ selectedMonth }) => {
   const [isTask, setIsTask] = useState(false);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
+    isInitialLoad.current = true;
     fetchMessages();
   }, [selectedMonth]);
 
   useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
