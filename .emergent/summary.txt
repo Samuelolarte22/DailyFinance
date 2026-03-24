@@ -1,188 +1,172 @@
 <analysis>**original_problem_statement:**
-El usuario quiere construir un sistema de gestión de información financiera para ayudar a las personas a entender y aprender sobre finanzas personales y gestión de deudas. El proyecto se titula Evaluación de un sistema de gestión de información financiera para la organización de gastos en estudiantes universitarios: estudio en una beta cerrada.
+El usuario solicitó construir un sistema de gestión financiera llamado LD Finance. La aplicación web debe permitir a los usuarios gestionar sus finanzas personales (ingresos, gastos, deudas, ahorros) y recibir asesoramiento.
 
 PRODUCT REQUIREMENTS:
-- El sistema debe ser una aplicación web (React).
-- Módulo básico de registro y organización de datos (ingresos vs. egresos).
-- Inicialmente pensado para estudiantes, pero luego se generalizó a DailyFinance y finalmente a LD Finance para un público profesional.
-- Autenticación con Google Login.
-- Diseño minimalista y profesional con una paleta de colores específica (azul oscuro, dorado, blanco).
-- Panel de administración para que los asesores puedan:
-    - Ver un resumen de todos los usuarios.
-    - Anotar ingresos y egresos en las cuentas de los usuarios.
-    - Promover a otros usuarios a administradores.
-    - Eliminar usuarios con doble confirmación.
-- La visualización de datos de ingresos y gastos debe estar dividida por meses. Las deudas y ahorros deben ser globales.
+- **Autenticación y Perfil:** Login con Google, perfil de usuario con opción de cuenta pública/privada, gestión de bancos y subida de documentos.
+- **Gestión Financiera:**
+    - Registro de transacciones (ingresos/gastos) asociadas a un banco opcional.
+    - Funcionalidad de transacciones compartidas entre usuarios conectados, con reparto por porcentaje.
+    - Presupuestos mensuales para gastos e ingresos (Proyectado vs. Real) en el Dashboard.
+    - Gestión de deudas con cálculo de bola de nieve y amortización (simplificado para pedir solo deuda total, balance, # cuotas y tasa anual).
+    - Gestión de metas de ahorro.
+- **Componente Social:**
+    - Página de comunidad para ver perfiles públicos.
+    - Sistema de conexión entre usuarios (enviar, aceptar, rechazar solicitudes).
+- **Panel de Administración:**
+    - Vista general de todos los usuarios.
+    - Capacidad para promover/revocar rol de administrador.
+    - Capacidad para eliminar usuarios.
+    - **Impersonation/Vista de Asesor:** Permitir a los administradores ver y editar la información financiera (transacciones, deudas, ahorros) de un usuario como si fueran ellos.
+    - Gestión de categorías de gastos globales.
+- **Comunicación:** Un chat/caja de comentarios en el Dashboard para que el usuario y el asesor se comuniquen, dejen tareas y el historial se guarde por mes.
+- **Diseño y UX:**
+    - Paleta de colores específica (azul oscuro, dorado, blanco).
+    - Logo animado (LD -> Holdings -> Finance) con una duración más lenta.
+    - Formato de números con separadores de miles (e.g., 1.000.000) en todos los inputs numéricos.
+    - Corregir un bug de auto-scroll en el Dashboard.
+    - Footer actualizado con logo y texto específico.
 
-**User's preferred language**: Español (Spanish)
+**User's preferred language**: Español (Spanish). The next agent MUST respond in Spanish.
 
 **what currently exists?**
-Existe una aplicación full-stack completamente funcional con un backend en FastAPI, un frontend en React y una base de datos MongoDB. La aplicación, ahora llamada LD Finance, incluye autenticación de usuarios a través de Google, un panel de control para usuarios, y un panel de administración completo. Se ha implementado la lógica para CRUD de transacciones, deudas, metas de ahorro y una encuesta diagnóstica inicial. El frontend ha sido parcialmente rediseñado para usar una nueva paleta de colores (azul oscuro, dorado, blanco) y la marca LD Finance.
+Una aplicación full-stack (FastAPI + React + MongoDB) completamente funcional. Se han implementado la mayoría de las características solicitadas, incluyendo autenticación, el panel de administración, la gestión financiera (transacciones, deudas, ahorros), la subida de documentos mediante Object Storage, la gestión de bancos, y las funcionalidades sociales (perfiles, conexiones, transacciones compartidas). También se han implementado el chat con el asesor y la personalización de categorías. Recientemente, se fusionaron las tarjetas de presupuesto de ingresos y gastos en una sola con pestañas en el Dashboard, según la última petición del usuario.
 
 **Last working item**:
-- **Last item agent was working:** El agente estaba realizando una renovación completa del frontend y solucionando un bug crítico. Las tareas incluían:
-    1.  **Rebranding:** Cambiar el nombre y el estilo de DailyFinance a LD Finance.
-    2.  **Nueva paleta de colores:** Implementar una nueva paleta de colores (, , ) para que coincida con la página principal del usuario.
-    3.  **Visualización mensual:** Modificar el Dashboard y la página de transacciones para agrupar y mostrar los datos por mes.
-    4.  **Corrección de bug:** Solucionar un problema donde un usuario promovido a administrador no obtenía los privilegios de administrador en el frontend después de volver a iniciar sesión.
-- **Status:** IN PROGRESS
-- **Agent Testing Done:** Y (Parcialmente. El agente verificó la nueva landing page con un screenshot, pero no probó la funcionalidad de la vista mensual ni la corrección del bug de admin de forma end-to-end.)
-- **Which testing method agent to use?** both. Primero, el agente debe verificar manualmente la corrección del bug de admin y la nueva vista mensual. Después, debe ejecutar  para una regresión completa, ya que los cambios fueron muy extensos. Finalmente, puede proceder con  como solicitó el usuario.
+- **Last item agent was working:** El agente acaba de fusionar las tarjetas Proyectado vs Real de gastos y Esperado vs Real de ingresos en una sola tarjeta con dos pestañas (Gastos e Ingresos) en la página del Dashboard (). Esto se hizo para reducir el scroll vertical y consolidar la información.
+- **Status:** TESTING PENDING
+- **Agent Testing Done:** N
+- **Which testing method agent to use?** both. Primero, el agente debe usar la  para verificar visualmente que la nueva tarjeta con pestañas se renderiza correctamente en el Dashboard. Luego, debe usar  para realizar pruebas funcionales: cambiar entre pestañas, guardar un nuevo presupuesto en cada una y verificar que los datos se muestren correctamente.
 - **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: El rol de administrador no se actualiza en el frontend (P0)**
--   **Issue 2: La renovación del UI a LD Finance está incompleta (P1)**
-
-**Issues Detail:**
--   **Issue 1:** El rol de administrador no se actualiza en el frontend
-    -   **Attempted fixes:** El agente verificó que el backend actualiza correctamente el flag  en la base de datos. La sospecha es que el frontend no está refrescando el estado de autenticación del usuario al volver a iniciar sesión, utilizando datos cacheados. El agente reescribió varios componentes del frontend, pero no se ha verificado si la lógica central en  o el  fue corregida para forzar una recarga de los datos del usuario.
-    -   **Next debug checklist:**
-        1.  Revisar  y el  para asegurar que la función  o similar se ejecute al inicio y obtenga los datos del usuario del endpoint , incluyendo el campo .
-        2.  Asegurarse de que el contexto de autenticación se actualice con la respuesta completa.
-        3.  Probar el flujo:
-            -   Iniciar sesión como admin.
-            -   Promover a un usuario normal a admin.
-            -   Cerrar sesión con el usuario admin.
-            -   Iniciar sesión con el usuario recién promovido y verificar que el enlace de Admin aparezca en el .
-    -   **Why fix this issue and what will be achieved with the fix?** Es una funcionalidad crítica para la gestión del sistema. Sin esto, los administradores no pueden delegar permisos.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** both
-    -   **Blocked on other issue:** None
-
--   **Issue 2:** La renovación del UI a LD Finance está incompleta
-    -   **Attempted fixes:** El agente actualizó  con la nueva paleta de colores y reescribió las siguientes páginas: , , , , , , , .
-    -   **Next debug checklist:**
-        1.  Actualizar  y  para que usen la nueva paleta de colores y el branding LD Finance.
-        2.  Verificar que la vista mensual de datos en el Dashboard y Transacciones funciona correctamente, incluyendo la navegación entre meses.
-    -   **Why fix this issue and what will be achieved with the fix?** Para mantener la consistencia visual en toda la aplicación y cumplir con los requisitos del usuario.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** frontend
-    -   **Blocked on other issue:** None
+No hay issues pendientes. El trabajo actual es la verificación de una nueva característica.
 
 **In progress Task List**:
--   **Task 1:** Finalizar la renovación visual y funcional de LD Finance (P0)
-    -   **Where to resume:** Actualizar los archivos  y  para que coincidan con el nuevo diseño y paleta de colores. Verificar la implementación de la vista mensual en  y .
-    -   **What will be achieved with this?** Una aplicación cohesiva y profesional lista para ser desplegada y probada por el usuario.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** frontend
+-   **Task 1:** Verificar la nueva tarjeta de presupuestos en el Dashboard (P0)
+    -   **Where to resume:** En el archivo .
+    -   **What will be achieved with this?** Confirmar que la fusión de las tarjetas de presupuesto en una sola con pestañas funciona como se esperaba y es visualmente correcta.
+    -   **Status:** TESTING PENDING
+    -   **Should Test frontend/backend/both after fix?** both
     -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-  - **Deploy to production (P0):** El usuario ha solicitado explícitamente desplegar la aplicación para probarla en un entorno de producción. Esto debe hacerse después de que los issues actuales sean resueltos.
+  - **Implementar Frontend para Admin Impersonation (P0):** El backend ya tiene un endpoint () que genera un token temporal para un usuario. Es necesario implementar la lógica en el frontend () para que un administrador pueda hacer clic en un botón Ver como usuario, obtener este token y ser redirigido a la vista del dashboard de ese usuario, con la capacidad de ver y editar sus datos financieros como si fuera él.
 - **Future Tasks:**
-  - **Añadir mensaje en la página de login (P2):** El usuario preguntó si podía personalizar la página de inicio de sesión. El agente explicó que es una página externa de Emergent Auth, pero propuso alternativas como añadir un mensaje en la Landing Page () o crear una página intermedia.
+  - **Gamificación Social (P2):** Añadir un ranking o comparación entre amigos/conexiones para motivar hábitos financieros (ej. Tu amigo ahorró 15% más este mes).
+  - **Notificaciones Automáticas (P2):** Crear alertas cuando un gasto se acerque al límite del presupuesto (ej. al 80%).
+  - **Transacciones Recurrentes (P2):** Permitir a los usuarios programar ingresos o gastos que se repiten periódicamente.
+  - **Resumen Semanal por Email (P2):** Enviar un correo electrónico a los usuarios con un resumen de su actividad financiera.
 
 **Completed work in this session**
-- MVP inicial de la aplicación StudentFinance.
-- Implementación de un panel de administración con funcionalidades para ver usuarios, agregar transacciones, gestionar roles de administrador y eliminar usuarios.
-- Rebranding inicial de StudentFinance a DailyFinance.
-- Rebranding parcial de DailyFinance a LD Finance con nueva paleta de colores.
-- Implementación de la base para la visualización de datos por mes en el dashboard y transacciones.
-- Corrección de optimizaciones de base de datos (N+1 query) requeridas para el despliegue.
+- **Features V2.0 (10/10 implementadas):**
+  - **Bugs Corregidos:** Se solucionó el auto-scroll del Dashboard y el formato de números en la encuesta inicial.
+  - **UI/UX Mejorada:** Se ralentizó la animación del logo, se actualizó el footer, y se añadió una sección de beneficios en el perfil.
+  - **Gestión Financiera:** Se añadió presupuesto de ingresos, gestión de bancos en el perfil, y se asociaron transacciones a bancos.
+  - **Funcionalidad de Admin:** Se crearon los endpoints para que un admin pueda ver como usuario.
+  - **Gestión de Documentos:** Se implementó la subida de archivos en el perfil usando Object Storage.
+  - **Red Social:** Se implementó la base con perfiles públicos/privados, sistema de conexiones y transacciones compartidas.
+- **Features Anteriores:**
+  - Se implementó el componente  para formatear números en toda la aplicación.
+  - Se simplificó el formulario de deudas para calcular automáticamente el pago mínimo.
+  - Se implementó la sección Proyectado vs Real en el Dashboard.
+  - Se implementó un chat entre asesor y usuario en el Dashboard.
+  - Se implementó la gestión de categorías por parte del administrador.
+  - Se corrigió un bug crítico que impedía que el rol de admin se actualizara en el frontend.
 
 **Earlier issues found/mentioned but not fixed**
--   **Admin role assignment bug:** Actualmente en progreso, listado en All Pending/In progress Issue list.
--   **Incomplete UI overhaul:** Actualmente en progreso, listado en In progress Task List.
+- None.
 
 **Known issue recurrence from previous fork**
--   None.
+- None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Python
--   **Frontend:** React, JavaScript, TailwindCSS, Shadcn/UI
--   **Database:** MongoDB
--   **Authentication:** Emergent-managed Google Auth (JWT)
--   **Architecture:** Full-stack, single-page application (SPA)
+- **Backend:** FastAPI, Python, Pydantic
+- **Frontend:** React, JavaScript, TailwindCSS, Shadcn/UI
+- **Database:** MongoDB (con  para async)
+- **Authentication:** Emergent-managed Google Auth (JWT)
+- **File Storage:** Emergent Object Storage
 
 **key DB schema**
--   **users:** 
--   **transactions:** 
--   **debts:** 
--   **savings_goals:** 
--   **surveys:** 
--   **sessions:** 
+- **users:** 
+- **transactions:** 
+- **categories:** 
+- **messages:** 
+- **budgets:** 
+- **files:** 
+- **banks:** 
+- **connections:** 
 
 **changes in tech stack**
--   None.
+- Se instaló y utilizó la librería  para la integración con Object Storage.
 
 **All files of reference**
--   : Contiene toda la lógica del backend, incluyendo API endpoints, modelos de datos Pydantic y lógica de negocio. Ha sido modificado múltiples veces para añadir las funcionalidades de admin y ajustar los datos devueltos.
--   : Contiene las variables de color globales de TailwindCSS. Actualizado recientemente con la nueva paleta de LD Finance.
--   : Archivo principal del frontend, gestiona el enrutamiento y el contexto de autenticación. Es clave para solucionar el bug de admin.
--   : Todos los archivos de esta carpeta han sido creados o modificados. Los más recientes son ,  y  para el rebranding y la vista mensual.  fue modificado extensamente para añadir nuevas funcionalidades.
--   : Componente de layout principal, muestra la navegación. Modificado para el nuevo branding y para mostrar el enlace de admin condicionalmente.
--   : Contiene la variable  para la configuración inicial de administradores.
+- : El archivo monolítico del backend, modificado extensamente para añadir todas las nuevas funcionalidades (presupuestos, bancos, archivos, impersonation, social).
+- : Modificado para agregar presupuestos de ingresos y gastos, y recientemente para fusionarlos en una sola tarjeta con pestañas.
+- : Modificado para añadir gestión de bancos, subida de documentos, sección de beneficios y el toggle de perfil público/privado.
+- : Modificado para usar , añadir selector de banco y la opción de transacciones compartidas.
+- : Modificado para usar  y simplificar el formulario de creación.
+- : Nuevo archivo para la funcionalidad de red social.
+- : Nuevo componente reutilizable para el formato de moneda.
 
 **Areas that need refactoring**:
-- La lógica de autenticación en  podría ser más robusta para asegurar que los datos del usuario (especialmente el rol ) se recarguen desde el servidor al iniciar sesión en lugar de depender de una caché potencialmente desactualizada.
+- El archivo  tiene más de 1500 líneas. Debería ser refactorizado urgentemente, dividiendo la lógica en múltiples routers (ej. , , etc.) y los modelos Pydantic en un archivo .
 
 **key api endpoints**
--   : Inicia el flujo de login.
--   : Obtiene los datos del usuario autenticado.
--   : Obtiene la lista de todos los usuarios (admin).
--   : Obtiene detalles de un usuario específico (admin).
--   : Promueve/revoca el rol de admin a un usuario.
--   : Elimina un usuario y todos sus datos.
--   : Obtiene los datos resumidos para el panel de usuario.
--   , , : Endpoints CRUD para la gestión financiera.
+- : GET, POST para presupuestos.
+- : GET, POST, DELETE para bancos.
+- , , : Para gestión de archivos.
+- : Para obtener un token de sesión de otro usuario (admin).
+- : GET para listar usuarios públicos.
+- : POST, PUT para gestionar solicitudes de conexión.
+- : POST para crear transacciones compartidas.
+- : PUT para cambiar la visibilidad del perfil.
 
 **Critical Info for New Agent**
-- El usuario  debe ser administrador.
-- La prioridad principal es solucionar el bug del rol de admin y completar el rediseño a LD Finance. Inmediatamente después, el usuario quiere que la aplicación se despliegue.
-- Al intentar desplegar, el  puede reportar falsamente un error sobre una URL de autenticación hardcoded. La URL  es correcta según el playbook y no debe ser modificada. Ignora esta advertencia específica si aparece.
-- El usuario quiere probar los cambios en el entorno de producción desplegado, por lo que es crucial que el  se ejecute con éxito.
+- La tarea más importante y pendiente es la implementación del frontend para la funcionalidad de Admin Impersonation. El backend está listo, pero el administrador no tiene cómo usarlo desde la UI.
+- El archivo  es muy grande y complejo; se recomienda proponer su refactorización al usuario después de completar la tarea actual.
+- El usuario es muy detallado y suele solicitar múltiples cambios a la vez. Es crucial confirmar el plan de acción con  antes de empezar a codificar.
 
 **documents and test reports created in this job**
--   /app/memory/PRD.md
--   /app/test_reports/iteration_1.json
--   /app/auth_testing.md
+- 
+- 
+- 
+- 
+-  (actualizado continuamente)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Despliega la app y, ¿puedo acceder al código para cambiar textos?
-2.  **Assistant:** Explica cómo editar el código con Code y desplegar, y confirma que los cambios se subirán.
-3.  **User:** (MEMORY LIMIT)
-4.  **Assistant:** Confirma el estado y pregunta si está listo para desplegar.
-5.  **User:** Última petición: ¿puede un admin hacer a otros usuarios admin?
-6.  **Assistant:** Implementa la funcionalidad para que los admins puedan gestionar los roles de otros usuarios.
-7.  **User:** ¿Puedo poner texto en la página de inicio de sesión?
-8.  **Assistant:** Explica que la página de login es externa pero ofrece alternativas en la landing page.
-9.  **User:** ¿Puede el admin borrar usuarios con doble confirmación?
-10. **Assistant:** Implementa la funcionalidad de borrado de usuarios.
-11. **User:** Guárdalo en GitHub y lánzalo.
-12. **Assistant:** Proporciona instrucciones para guardar en GitHub y confirma que está listo para desplegar.
-13. **User:** ¿Funcionará 24/7 sin dominio personalizado?
-14. **Assistant:** Confirma que la app desplegada funciona 24/7.
-15. **User:** **(ÚLTIMO Y MÁS IMPORTANTE)** Pide una renovación completa:
-    *   Cambiar a la paleta de colores de LD Holdings.
-    *   Renombrar todo a LD Finance.
-    *   Dividir ingresos/gastos por meses.
-    *   Reporta un bug: asignar a alguien como admin no funciona (el perfil no se actualiza).
-16. **Assistant:** Acusa recibo y empieza a trabajar en los cambios.
-17. **User:** Pide un redespliegue para probar en producción, diciendo que en local todo parece estar bien.
+1. **User:** Pide implementar proyectado vs real en el dashboard y simplificar el formulario de deudas.
+2. **Agent:** Implementa ambas características y las prueba con éxito.
+3. **User:** Proporciona una lista de 10 nuevos requerimientos para la V2.0 de la aplicación.
+4. **Agent:** Propone un plan de desarrollo en 4 fases para los 10 puntos y pide confirmación.
+5. **User:** Aprueba el plan y añade un requisito: los admins deben poder editar datos de usuarios y las transacciones compartidas deben notificar.
+6. **Agent:** Confirma los nuevos detalles y comienza la implementación.
+7. **Agent:** Completa todas las fases, implementando las 10 características y realizando pruebas exhaustivas con el  en cada etapa.
+8. **Agent:** Informa que todas las características de la V2.0 están completas y probadas.
+9. **User:** Pide un cambio final de UI: fusionar los dos cuadros de presupuesto (ingresos y gastos) en uno solo en el dashboard para que no sea tan largo.
+10. **Agent:** Implementa la fusión de los cuadros de presupuesto en una sola tarjeta con pestañas.
 
 **Project Health Check:**
--   **Broken:** La funcionalidad de asignación de roles de administrador está rota, lo que es crítico para la gestión de la aplicación.
+- **Broken:** Ninguna funcionalidad crítica está rota.
+- **Mocked:** Ninguna.
+- **Incomplete:** La funcionalidad de Admin Impersonation está incompleta (falta el frontend).
 
 **3rd Party Integrations**
--   Emergent-managed Google Auth: Para el inicio de sesión de usuarios.
+- Emergent-managed Google Auth
+- Emergent Object Storage (vía )
 
 **Testing status**
--   **Testing agent used after significant changes:** NO (El agente no ejecutó el testing agent después de la última gran refactorización y corrección de bugs, lo cual es un paso omitido importante).
--   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** []
--   **Known regressions:** La asignación de roles de administrador dejó de funcionar correctamente en el frontend.
+- **Testing agent used after significant changes:** YES (usado 4 veces para V2.0).
+- **Troubleshoot agent used after agent stuck in loop:** NO
+- **Test files created:** [ a ]
+- **Known regressions:** None.
 
 **Credentials to test flow:**
--   El usuario principal  está configurado como admin.
--   Se puede crear cualquier otro usuario a través del flujo de Google Login para probar la promoción a admin.
+- Admin: 
+- Se puede crear un usuario normal a través del flujo de Google Login para probar.
 
 **What agent forgot to execute**
--   El agente no actualizó las páginas  y  con el nuevo branding LD Finance y la nueva paleta de colores, a pesar de que formaba parte de la renovación.
--   El agente no ejecutó  después de la última ronda masiva de cambios (rebranding, vista mensual y bug de admin), que es una omisión crítica de las mejores prácticas antes de un despliegue.</analysis>
+- El agente implementó el backend para que un admin pueda obtener un token de otro usuario (), pero no construyó la interfaz de usuario en el panel de Admin para que el administrador pueda usar esta función, ver la aplicación como el usuario y editar sus datos.</analysis>

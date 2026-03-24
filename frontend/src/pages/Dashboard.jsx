@@ -392,196 +392,199 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Budget: Projected vs Actual */}
+      {/* Budget: Projected vs Actual (Expenses + Income) */}
       <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="budget-comparison-card">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-white flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
             <Target className="w-5 h-5 text-[#D4AF37]" />
             Proyectado vs Real
           </CardTitle>
-          <Button size="sm" variant="outline" className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
-            onClick={() => setShowAddBudget(!showAddBudget)} data-testid="add-budget-btn">
-            <Plus className="w-4 h-4 mr-1" /> Agregar
-          </Button>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Add new budget inline */}
-          {showAddBudget && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/20">
-              <select value={newBudgetCat} onChange={(e) => setNewBudgetCat(e.target.value)}
-                className="bg-[#141b2d] border border-[#2a3444] text-white text-sm rounded-md px-3 py-2 flex-1"
-                data-testid="budget-category-select">
-                <option value="">Categoria...</option>
-                {expenseCategories
-                  .filter(c => !budgetComparison.find(b => b.category === c && b.projected > 0))
-                  .map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <CurrencyInput value={newBudgetAmount} onChange={setNewBudgetAmount}
-                placeholder="Proyectado" className="bg-[#141b2d] border-[#2a3444] text-white w-36"
-                data-testid="budget-amount-input" />
-              <Button size="icon" className="btn-gold shrink-0"
-                onClick={() => { if (newBudgetCat) handleSaveBudget(newBudgetCat, newBudgetAmount); }}
-                data-testid="save-budget-btn">
-                <Check className="w-4 h-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="text-gray-500 shrink-0"
-                onClick={() => { setShowAddBudget(false); setNewBudgetCat(""); setNewBudgetAmount(""); }}>
-                <X className="w-4 h-4" />
-              </Button>
+          {/* Tabs for Gastos / Ingresos */}
+          <Tabs defaultValue="expenses">
+            <div className="flex items-center justify-between">
+              <TabsList className="bg-[#141b2d] border border-[#2a3444] h-8">
+                <TabsTrigger value="expenses" className="text-xs data-[state=active]:bg-[#D4AF37] data-[state=active]:text-[#141b2d] h-6 px-3">Gastos</TabsTrigger>
+                <TabsTrigger value="income" className="text-xs data-[state=active]:bg-green-500 data-[state=active]:text-white h-6 px-3">Ingresos</TabsTrigger>
+              </TabsList>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 h-7 text-xs"
+                  onClick={() => { setShowAddBudget(!showAddBudget); setShowAddIncomeBudget(false); }} data-testid="add-budget-btn">
+                  <Plus className="w-3 h-3 mr-1" /> Gasto
+                </Button>
+                <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10 h-7 text-xs"
+                  onClick={() => { setShowAddIncomeBudget(!showAddIncomeBudget); setShowAddBudget(false); }} data-testid="add-income-budget-btn">
+                  <Plus className="w-3 h-3 mr-1" /> Ingreso
+                </Button>
+              </div>
             </div>
-          )}
 
-          {budgetComparison.length > 0 ? (
-            budgetComparison
-              .filter(item => item.projected > 0 || item.actual > 0)
-              .map((item) => {
-                const pct = item.projected > 0 ? Math.min((item.actual / item.projected) * 100, 150) : 0;
-                const isOver = item.over_budget;
-                return (
-                  <div key={item.category} className="group p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
-                    data-testid={`budget-item-${item.category}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-white">{item.category}</span>
-                      <div className="flex items-center gap-2">
-                        {editingBudget === item.category ? (
-                          <div className="flex items-center gap-1">
-                            <CurrencyInput value={editAmount} onChange={setEditAmount}
-                              className="bg-[#1a2332] border-[#2a3444] text-white w-28 h-7 text-xs" />
-                            <button onClick={() => handleSaveBudget(item.category, editAmount)}
-                              className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
-                            <button onClick={() => setEditingBudget(null)}
-                              className="text-gray-500 hover:text-gray-300"><X className="w-4 h-4" /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <button onClick={() => { setEditingBudget(item.category); setEditAmount(String(item.projected)); }}
-                              className="text-xs text-gray-600 hover:text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity">
-                              Editar
-                            </button>
-                            {item.budget_id && (
-                              <button onClick={() => handleDeleteBudget(item.budget_id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <X className="w-3 h-3 text-gray-600 hover:text-red-400" />
-                              </button>
+            {/* Add new expense budget inline */}
+            {showAddBudget && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/20 mt-3">
+                <select value={newBudgetCat} onChange={(e) => setNewBudgetCat(e.target.value)}
+                  className="bg-[#141b2d] border border-[#2a3444] text-white text-sm rounded-md px-3 py-2 flex-1"
+                  data-testid="budget-category-select">
+                  <option value="">Categoria...</option>
+                  {expenseCategories
+                    .filter(c => !budgetComparison.find(b => b.category === c && b.projected > 0))
+                    .map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <CurrencyInput value={newBudgetAmount} onChange={setNewBudgetAmount}
+                  placeholder="Proyectado" className="bg-[#141b2d] border-[#2a3444] text-white w-36"
+                  data-testid="budget-amount-input" />
+                <Button size="icon" className="btn-gold shrink-0"
+                  onClick={() => { if (newBudgetCat) handleSaveBudget(newBudgetCat, newBudgetAmount); }}
+                  data-testid="save-budget-btn">
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="text-gray-500 shrink-0"
+                  onClick={() => { setShowAddBudget(false); setNewBudgetCat(""); setNewBudgetAmount(""); }}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            {/* Add new income budget inline */}
+            {showAddIncomeBudget && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20 mt-3">
+                <select value={newBudgetCat} onChange={(e) => setNewBudgetCat(e.target.value)}
+                  className="bg-[#141b2d] border border-[#2a3444] text-white text-sm rounded-md px-3 py-2 flex-1"
+                  data-testid="income-budget-cat-select">
+                  <option value="">Fuente de ingreso...</option>
+                  {incomeCategories
+                    .filter(c => !incomeBudgetComparison.find(b => b.category === c && b.projected > 0))
+                    .map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <CurrencyInput value={newBudgetAmount} onChange={setNewBudgetAmount}
+                  placeholder="Esperado" className="bg-[#141b2d] border-[#2a3444] text-white w-36"
+                  data-testid="income-budget-amount" />
+                <Button size="icon" className="bg-green-600 hover:bg-green-700 shrink-0"
+                  onClick={() => { if (newBudgetCat) handleSaveBudget(newBudgetCat, newBudgetAmount, "income"); }}
+                  data-testid="save-income-budget">
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="text-gray-500 shrink-0"
+                  onClick={() => { setShowAddIncomeBudget(false); setNewBudgetCat(""); setNewBudgetAmount(""); }}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Expense comparison */}
+            <TabsContent value="expenses" className="space-y-2 mt-2">
+              {budgetComparison.filter(item => item.projected > 0 || item.actual > 0).length > 0 ? (
+                budgetComparison
+                  .filter(item => item.projected > 0 || item.actual > 0)
+                  .map((item) => {
+                    const pct = item.projected > 0 ? Math.min((item.actual / item.projected) * 100, 150) : 0;
+                    const isOver = item.over_budget;
+                    return (
+                      <div key={item.category} className="group p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
+                        data-testid={`budget-item-${item.category}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-white">{item.category}</span>
+                          <div className="flex items-center gap-2">
+                            {editingBudget === item.category ? (
+                              <div className="flex items-center gap-1">
+                                <CurrencyInput value={editAmount} onChange={setEditAmount}
+                                  className="bg-[#1a2332] border-[#2a3444] text-white w-28 h-7 text-xs" />
+                                <button onClick={() => handleSaveBudget(item.category, editAmount)}
+                                  className="text-green-400 hover:text-green-300"><Check className="w-4 h-4" /></button>
+                                <button onClick={() => setEditingBudget(null)}
+                                  className="text-gray-500 hover:text-gray-300"><X className="w-4 h-4" /></button>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => { setEditingBudget(item.category); setEditAmount(String(item.projected)); }}
+                                  className="text-xs text-gray-600 hover:text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Editar
+                                </button>
+                                {item.budget_id && (
+                                  <button onClick={() => handleDeleteBudget(item.budget_id)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X className="w-3 h-3 text-gray-600 hover:text-red-400" />
+                                  </button>
+                                )}
+                              </>
                             )}
-                          </>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
+                          <div className={`h-full rounded-full transition-all duration-500 ${
+                            isOver ? 'bg-red-400/80' : 'bg-green-400/80'
+                          }`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">
+                            Proyectado: <span className="font-mono text-gray-400">{formatCurrency(item.projected)}</span>
+                          </span>
+                          <span className={`font-mono font-medium ${isOver ? 'text-red-400' : 'text-green-400'}`}>
+                            Gastado: {formatCurrency(item.actual)}
+                          </span>
+                        </div>
+                        {item.projected > 0 && (
+                          <div className="mt-1 text-right">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                              isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
+                            }`}>
+                              {isOver ? `Excedido: ${formatCurrency(Math.abs(item.difference))}` : `Disponible: ${formatCurrency(item.difference)}`}
+                            </span>
+                          </div>
                         )}
                       </div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
-                      <div className={`h-full rounded-full transition-all duration-500 ${
-                        isOver ? 'bg-red-400/80' : 'bg-green-400/80'
-                      }`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">
-                        Proyectado: <span className="font-mono text-gray-400">{formatCurrency(item.projected)}</span>
-                      </span>
-                      <span className={`font-mono font-medium ${isOver ? 'text-red-400' : 'text-green-400'}`}>
-                        Gastado: {formatCurrency(item.actual)}
-                      </span>
-                    </div>
-                    {item.projected > 0 && (
-                      <div className="mt-1 text-right">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                          isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
-                        }`}>
-                          {isOver ? `Excedido: ${formatCurrency(Math.abs(item.difference))}` : `Disponible: ${formatCurrency(item.difference)}`}
-                        </span>
+                    );
+                  })
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-sm text-gray-600">No hay presupuestos de gastos</p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Income comparison */}
+            <TabsContent value="income" className="space-y-2 mt-2">
+              {incomeBudgetComparison.filter(i => i.projected > 0 || i.actual > 0).length > 0 ? (
+                incomeBudgetComparison
+                  .filter(item => item.projected > 0 || item.actual > 0)
+                  .map((item) => {
+                    const pct = item.projected > 0 ? Math.min((item.actual / item.projected) * 100, 150) : 0;
+                    const isUnder = item.over_budget;
+                    return (
+                      <div key={item.category} className="group p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
+                        data-testid={`income-budget-${item.category}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-white">{item.category}</span>
+                          {item.budget_id && (
+                            <button onClick={() => handleDeleteBudget(item.budget_id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <X className="w-3 h-3 text-gray-600 hover:text-red-400" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
+                          <div className={`h-full rounded-full transition-all duration-500 ${
+                            isUnder ? 'bg-red-400/80' : 'bg-green-400/80'
+                          }`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">
+                            Esperado: <span className="font-mono text-gray-400">{formatCurrency(item.projected)}</span>
+                          </span>
+                          <span className={`font-mono font-medium ${isUnder ? 'text-red-400' : 'text-green-400'}`}>
+                            Recibido: {formatCurrency(item.actual)}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })
-          ) : (
-            <div className="py-6 text-center">
-              <Target className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-600" />
-              <p className="text-sm text-gray-600">No hay presupuestos configurados</p>
-              <p className="text-xs text-gray-700 mt-1">Agrega un presupuesto para cada categoria de gasto</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Income: Projected vs Actual */}
-      <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="income-budget-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white flex items-center gap-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-            <TrendingUp className="w-5 h-5 text-green-400" />
-            Ingresos: Esperado vs Real
-          </CardTitle>
-          <Button size="sm" variant="outline" className="border-green-500/50 text-green-400 hover:bg-green-500/10"
-            onClick={() => setShowAddIncomeBudget(!showAddIncomeBudget)} data-testid="add-income-budget-btn">
-            <Plus className="w-4 h-4 mr-1" /> Agregar
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {showAddIncomeBudget && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
-              <select value={newBudgetCat} onChange={(e) => setNewBudgetCat(e.target.value)}
-                className="bg-[#141b2d] border border-[#2a3444] text-white text-sm rounded-md px-3 py-2 flex-1"
-                data-testid="income-budget-cat-select">
-                <option value="">Fuente de ingreso...</option>
-                {incomeCategories
-                  .filter(c => !incomeBudgetComparison.find(b => b.category === c && b.projected > 0))
-                  .map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <CurrencyInput value={newBudgetAmount} onChange={setNewBudgetAmount}
-                placeholder="Esperado" className="bg-[#141b2d] border-[#2a3444] text-white w-36"
-                data-testid="income-budget-amount" />
-              <Button size="icon" className="bg-green-600 hover:bg-green-700 shrink-0"
-                onClick={() => { if (newBudgetCat) handleSaveBudget(newBudgetCat, newBudgetAmount, "income"); }}
-                data-testid="save-income-budget">
-                <Check className="w-4 h-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="text-gray-500 shrink-0"
-                onClick={() => { setShowAddIncomeBudget(false); setNewBudgetCat(""); setNewBudgetAmount(""); }}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {incomeBudgetComparison.filter(i => i.projected > 0 || i.actual > 0).length > 0 ? (
-            incomeBudgetComparison
-              .filter(item => item.projected > 0 || item.actual > 0)
-              .map((item) => {
-                const pct = item.projected > 0 ? Math.min((item.actual / item.projected) * 100, 150) : 0;
-                const isUnder = item.over_budget;
-                return (
-                  <div key={item.category} className="group p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]"
-                    data-testid={`income-budget-${item.category}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-white">{item.category}</span>
-                      {item.budget_id && (
-                        <button onClick={() => handleDeleteBudget(item.budget_id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X className="w-3 h-3 text-gray-600 hover:text-red-400" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="h-2 bg-[#2a3444] rounded-full overflow-hidden mb-2">
-                      <div className={`h-full rounded-full transition-all duration-500 ${
-                        isUnder ? 'bg-red-400/80' : 'bg-green-400/80'
-                      }`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">
-                        Esperado: <span className="font-mono text-gray-400">{formatCurrency(item.projected)}</span>
-                      </span>
-                      <span className={`font-mono font-medium ${isUnder ? 'text-red-400' : 'text-green-400'}`}>
-                        Recibido: {formatCurrency(item.actual)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-          ) : (
-            <div className="py-6 text-center">
-              <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-600" />
-              <p className="text-sm text-gray-600">No hay ingresos esperados configurados</p>
-            </div>
-          )}
+                    );
+                  })
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-sm text-gray-600">No hay ingresos esperados configurados</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
