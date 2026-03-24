@@ -37,7 +37,8 @@ import {
   ShieldCheck,
   Trash2,
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  ArrowLeftRight
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
@@ -325,7 +326,7 @@ const Admin = () => {
       </div>
 
       {/* Global Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4" data-testid="admin-summary">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="admin-summary">
         <Card className="card-hover">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -333,7 +334,7 @@ const Admin = () => {
                 <Users className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Usuarios</p>
+                <p className="text-xs text-muted-foreground">Usuarios activos</p>
                 <p className="text-xl font-bold font-mono">{summary?.total_users || 0}</p>
               </div>
             </div>
@@ -343,14 +344,12 @@ const Admin = () => {
         <Card className="card-hover">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-income flex items-center justify-center">
-                <TrendingUp className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <UserCheck className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Ingresos totales</p>
-                <p className="text-lg font-bold font-mono text-income">
-                  {formatCurrency(summary?.financial_totals?.total_income || 0)}
-                </p>
+                <p className="text-xs text-muted-foreground">Perfil completado</p>
+                <p className="text-xl font-bold font-mono">{summary?.users_with_survey || 0}<span className="text-sm text-gray-500 font-normal">/{summary?.total_users || 0}</span></p>
               </div>
             </div>
           </CardContent>
@@ -359,14 +358,12 @@ const Admin = () => {
         <Card className="card-hover">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-expense flex items-center justify-center">
-                <TrendingDown className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-[#D4AF37]" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Gastos totales</p>
-                <p className="text-lg font-bold font-mono text-expense">
-                  {formatCurrency(summary?.financial_totals?.total_expenses || 0)}
-                </p>
+                <p className="text-xs text-muted-foreground">Conocimiento promedio</p>
+                <p className="text-xl font-bold font-mono text-[#D4AF37]">{summary?.averages?.avg_financial_knowledge || 0}<span className="text-sm text-gray-500 font-normal">/5</span></p>
               </div>
             </div>
           </CardContent>
@@ -375,58 +372,17 @@ const Admin = () => {
         <Card className="card-hover">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-debt flex items-center justify-center">
-                <CreditCard className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <ArrowLeftRight className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Deuda total</p>
-                <p className="text-lg font-bold font-mono text-debt">
-                  {formatCurrency(summary?.financial_totals?.total_debt || 0)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-savings flex items-center justify-center">
-                <PiggyBank className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Ahorro total</p>
-                <p className="text-lg font-bold font-mono text-savings">
-                  {formatCurrency(summary?.financial_totals?.total_savings || 0)}
-                </p>
+                <p className="text-xs text-muted-foreground">Transacciones totales</p>
+                <p className="text-xl font-bold font-mono">{summary?.financial_totals?.total_transactions || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Stats Overview */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <BarChart3 className="w-8 h-8 text-primary" />
-              <div>
-                <p className="font-medium">Resumen de usuarios</p>
-                <p className="text-sm text-muted-foreground">
-                  {summary?.users_with_survey || 0} de {summary?.total_users || 0} usuarios completaron su perfil financiero
-                </p>
-              </div>
-            </div>
-            <div className="text-center sm:text-right">
-              <p className="text-sm text-muted-foreground">Conocimiento financiero promedio</p>
-              <p className="text-2xl font-bold font-mono text-primary">
-                {summary?.averages?.avg_financial_knowledge || 0}/5
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Category Management */}
       <Card className="bg-[#1a2332] border-[#2a3444]">
