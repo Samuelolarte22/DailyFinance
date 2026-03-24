@@ -268,7 +268,7 @@ const Transactions = () => {
               Nueva transacción
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
+          <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
                 Agregar transacción
@@ -453,23 +453,23 @@ const Transactions = () => {
       </Card>
 
       {/* Monthly Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         <Card className="bg-[#1a2332] border-[#2a3444]">
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 sm:p-4 text-center">
             <p className="text-xs text-gray-500 mb-1">Ingresos</p>
-            <p className="text-lg font-bold font-mono text-green-400">{formatCurrency(monthlyIncome)}</p>
+            <p className="text-xs sm:text-lg font-bold font-mono text-green-400 truncate">{formatCurrency(monthlyIncome)}</p>
           </CardContent>
         </Card>
         <Card className="bg-[#1a2332] border-[#2a3444]">
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 sm:p-4 text-center">
             <p className="text-xs text-gray-500 mb-1">Gastos</p>
-            <p className="text-lg font-bold font-mono text-red-400">{formatCurrency(monthlyExpenses)}</p>
+            <p className="text-xs sm:text-lg font-bold font-mono text-red-400 truncate">{formatCurrency(monthlyExpenses)}</p>
           </CardContent>
         </Card>
         <Card className="bg-[#1a2332] border-[#D4AF37]/30">
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 sm:p-4 text-center">
             <p className="text-xs text-gray-500 mb-1">Balance</p>
-            <p className={`text-lg font-bold font-mono ${monthlyIncome - monthlyExpenses >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
+            <p className={`text-xs sm:text-lg font-bold font-mono truncate ${monthlyIncome - monthlyExpenses >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
               {formatCurrency(monthlyIncome - monthlyExpenses)}
             </p>
           </CardContent>

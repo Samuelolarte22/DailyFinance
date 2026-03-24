@@ -519,6 +519,8 @@ const Reports = () => {
                       padding: '12px',
                       color: '#fff'
                     }}
+                    labelStyle={{ color: '#fff' }}
+                    itemStyle={{ color: '#fff' }}
                   />
                   <Bar dataKey="income" name="income" radius={[4, 4, 0, 0]}>
                     {chartData.map((entry, index) => (
