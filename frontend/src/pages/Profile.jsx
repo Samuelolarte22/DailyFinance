@@ -4,7 +4,15 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { 
   User, 
   Mail, 
@@ -20,21 +28,29 @@ import {
   FileText,
   Upload,
   Download,
-  Users
+  Users,
+  Tag
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating } = useAuth();
   const [banks, setBanks] = useState([]);
   const [newBankName, setNewBankName] = useState("");
   const [showAddBank, setShowAddBank] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatType, setNewCatType] = useState("expense");
+  const [showAddCat, setShowAddCat] = useState(false);
+
+  const canManageCategories = user?.is_admin || isImpersonating;
 
   useEffect(() => {
     fetchBanks();
     fetchDocuments();
+    if (canManageCategories) fetchCategories();
   }, []);
 
   const fetchDocuments = async () => {
@@ -133,6 +149,38 @@ const Profile = () => {
       fetchBanks();
     } catch (error) {
       toast.error("Error al eliminar banco");
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(`${API}/categories`, { withCredentials: true });
+      setCategories(response.data.custom || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    try {
+      await axios.post(`${API}/categories`, { name: newCatName.trim(), type: newCatType }, { withCredentials: true });
+      toast.success("Categoria agregada");
+      setNewCatName("");
+      setShowAddCat(false);
+      fetchCategories();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error al agregar categoria");
+    }
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    try {
+      await axios.delete(`${API}/categories/${catId}`, { withCredentials: true });
+      toast.success("Categoria eliminada");
+      fetchCategories();
+    } catch (error) {
+      toast.error("Error al eliminar categoria");
     }
   };
 
@@ -416,6 +464,77 @@ const Profile = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Category Management - visible for admin or during impersonation */}
+      {canManageCategories && (
+        <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="profile-categories">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+              <Tag className="w-5 h-5 text-[#D4AF37]" />
+              Categorias
+            </CardTitle>
+            <Button size="sm" className="btn-gold rounded-md" onClick={() => setShowAddCat(!showAddCat)} data-testid="add-cat-profile-btn">
+              <Plus className="w-4 h-4 mr-1" /> Agregar
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {showAddCat && (
+              <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg bg-[#141b2d] border border-[#2a3444]">
+                <Input placeholder="Nombre" className="bg-[#1a2332] border-[#2a3444] text-white flex-1"
+                  value={newCatName} onChange={(e) => setNewCatName(e.target.value)} data-testid="new-cat-name" />
+                <Select value={newCatType} onValueChange={setNewCatType}>
+                  <SelectTrigger className="bg-[#1a2332] border-[#2a3444] text-white w-full sm:w-32" data-testid="new-cat-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Ingreso</SelectItem>
+                    <SelectItem value="expense">Gasto</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button className="btn-gold" onClick={handleAddCategory} data-testid="save-cat-btn">Guardar</Button>
+              </div>
+            )}
+            {/* Income */}
+            <div>
+              <p className="text-xs font-medium text-green-400 mb-2">Ingresos</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.filter(c => c.type === 'income').map(cat => (
+                  <div key={cat.category_id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#141b2d] border border-[#2a3444] text-sm">
+                    <span className="w-2 h-2 rounded-full bg-green-400" />
+                    <span className="text-gray-300">{cat.name}</span>
+                    <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-gray-600 hover:text-red-400 ml-0.5"
+                      data-testid={`del-cat-${cat.category_id}`}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {categories.filter(c => c.type === 'income').length === 0 && (
+                  <p className="text-xs text-gray-600">Sin categorias de ingreso</p>
+                )}
+              </div>
+            </div>
+            {/* Expense */}
+            <div>
+              <p className="text-xs font-medium text-red-400 mb-2">Gastos</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.filter(c => c.type === 'expense').map(cat => (
+                  <div key={cat.category_id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#141b2d] border border-[#2a3444] text-sm">
+                    <span className="w-2 h-2 rounded-full bg-red-400" />
+                    <span className="text-gray-300">{cat.name}</span>
+                    <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-gray-600 hover:text-red-400 ml-0.5"
+                      data-testid={`del-cat-${cat.category_id}`}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {categories.filter(c => c.type === 'expense').length === 0 && (
+                  <p className="text-xs text-gray-600">Sin categorias de gasto</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Logout */}
       <Card className="bg-[#1a2332] border-red-500/30">
