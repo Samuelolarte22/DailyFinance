@@ -26,6 +26,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import AnimatedLogo from "./AnimatedLogo";
+import FloatingTransaction from "./FloatingTransaction";
 
 const Layout = ({ children }) => {
   const { user, logout, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
@@ -236,6 +237,9 @@ const Layout = ({ children }) => {
           </div>
         </div>
       </footer>
+
+      {/* Floating Transaction Button - always visible */}
+      <FloatingTransaction />
     </div>
   );
 };

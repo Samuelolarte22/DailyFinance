@@ -716,11 +716,14 @@ async def get_dashboard(request: Request):
     total_savings = sum(s["current_amount"] for s in savings)
     
     pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    total_in_pockets = sum(p["balance"] for p in pockets)
     
     recent_transactions = transactions[:5]
     
     return {
         "balance": balance,
+        "available_balance": balance - total_in_pockets,
+        "total_in_pockets": total_in_pockets,
         "total_income": total_income,
         "total_expenses": total_expenses,
         "total_debt": total_debt,

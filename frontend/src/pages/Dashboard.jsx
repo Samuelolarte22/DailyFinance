@@ -3,18 +3,12 @@ import { useAuth, API } from "../App";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
-import { Calendar } from "../components/ui/calendar";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { Input } from "../components/ui/input";
 import { 
   TrendingUp, TrendingDown, Wallet, CreditCard, PiggyBank,
   ArrowUpRight, ArrowDownRight, ChevronRight, ChevronLeft,
-  Calendar as CalendarIcon, Target, Plus, X, Check, Pencil,
+  Calendar as CalendarIcon, Target, Plus, X, Check,
   Landmark
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -31,19 +25,10 @@ const Dashboard = () => {
   const [incomeBudgetComparison, setIncomeBudgetComparison] = useState([]);
   const [editingBudget, setEditingBudget] = useState(null);
   const [editAmount, setEditAmount] = useState("");
-  const [expenseCategories, setExpenseCategories] = useState([]);
-  const [incomeCategories, setIncomeCategories] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
-  // Floating transaction dialog
-  const [txnDialogOpen, setTxnDialogOpen] = useState(false);
-  const [txnForm, setTxnForm] = useState({
-    type: "expense", category: "", amount: "", description: "",
-    date: new Date(), bank: "", pocket_id: "", savings_goal_id: "", debt_id: ""
-  });
-  const [banks, setBanks] = useState([]);
   // Pocket dialog
   const [pocketDialogOpen, setPocketDialogOpen] = useState(false);
   const [newPocketName, setNewPocketName] = useState("");
@@ -52,8 +37,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-    fetchCategories();
-    fetchBanks();
   }, []);
 
   useEffect(() => {
@@ -69,23 +52,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${API}/categories`, { withCredentials: true });
-      if (response.data.expense) setExpenseCategories(response.data.expense);
-      if (response.data.income) setIncomeCategories(response.data.income);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-  };
-
-  const fetchBanks = async () => {
-    try {
-      const response = await axios.get(`${API}/banks`, { withCredentials: true });
-      setBanks(response.data);
-    } catch (error) { console.error(error); }
   };
 
   const fetchBudgetComparison = async () => {
@@ -113,35 +79,6 @@ const Dashboard = () => {
       fetchBudgetComparison();
     } catch (error) {
       toast.error("Error al guardar presupuesto");
-    }
-  };
-
-  const handleSubmitTransaction = async (e) => {
-    e.preventDefault();
-    if (!txnForm.category || !txnForm.amount) {
-      toast.error("Completa categoria y monto");
-      return;
-    }
-    try {
-      const payload = {
-        type: txnForm.type,
-        category: txnForm.category,
-        amount: parseInt(txnForm.amount),
-        description: txnForm.description,
-        date: format(txnForm.date, "yyyy-MM-dd"),
-        bank: txnForm.bank || undefined,
-        pocket_id: txnForm.pocket_id || undefined,
-        savings_goal_id: txnForm.savings_goal_id || undefined,
-        debt_id: txnForm.debt_id || undefined
-      };
-      await axios.post(`${API}/transactions`, payload, { withCredentials: true });
-      toast.success("Transaccion registrada");
-      setTxnDialogOpen(false);
-      setTxnForm({ type: "expense", category: "", amount: "", description: "", date: new Date(), bank: "", pocket_id: "", savings_goal_id: "", debt_id: "" });
-      fetchDashboard();
-      fetchBudgetComparison();
-    } catch (error) {
-      toast.error("Error al guardar");
     }
   };
 
@@ -230,9 +167,6 @@ const Dashboard = () => {
 
   const monthlyData = getMonthlyData();
   const pockets = dashboardData?.pockets || [];
-  const debts = dashboardData?.debts || [];
-  const savingsGoals = dashboardData?.savings_goals || [];
-  const currentCategories = txnForm.type === "income" ? incomeCategories : expenseCategories;
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20" data-testid="dashboard">
@@ -305,12 +239,12 @@ const Dashboard = () => {
                 <Wallet className="w-5 h-5 text-[#D4AF37]" />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mb-0.5">Balance del mes</p>
-            <p className={`text-xl font-bold font-mono ${monthlyData.balance >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
-              {formatCurrency(monthlyData.balance)}
+            <p className="text-xs text-gray-500 mb-0.5">Disponible</p>
+            <p className={`text-xl font-bold font-mono ${(dashboardData?.available_balance ?? monthlyData.balance) >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
+              {formatCurrency(dashboardData?.available_balance ?? monthlyData.balance)}
             </p>
-            {(totalIncomeProjected > 0 || totalExpenseProjected > 0) && (
-              <p className="text-[10px] text-gray-500 font-mono mt-1">Proy: {formatCurrency(totalIncomeProjected - totalExpenseProjected)}</p>
+            {(dashboardData?.total_in_pockets || 0) > 0 && (
+              <p className="text-[10px] text-gray-500 font-mono mt-1">En bolsillos: {formatCurrency(dashboardData.total_in_pockets)}</p>
             )}
           </CardContent>
         </Card>
@@ -629,160 +563,6 @@ const Dashboard = () => {
 
       {/* Advisor Chat */}
       <AdvisorChat selectedMonth={selectedMonth} />
-
-      {/* ========== FLOATING TRANSACTION BUTTON + DIALOG ========== */}
-      <Dialog open={txnDialogOpen} onOpenChange={setTxnDialogOpen}>
-        <DialogTrigger asChild>
-          <button className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#D4AF37] text-[#141b2d] shadow-lg shadow-[#D4AF37]/25 hover:bg-[#D4AF37]/90 transition-all flex items-center justify-center"
-            data-testid="floating-add-txn-btn">
-            <Plus className="w-7 h-7" />
-          </button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>Nueva transaccion</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmitTransaction} className="space-y-4">
-            {/* Type */}
-            <Tabs value={txnForm.type} onValueChange={(v) => setTxnForm({ ...txnForm, type: v, category: "", savings_goal_id: "", debt_id: "" })}>
-              <TabsList className="grid w-full grid-cols-2 bg-[#141b2d]">
-                <TabsTrigger value="income" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400" data-testid="ftxn-income-tab">
-                  <ArrowUpRight className="w-4 h-4 mr-1" /> Ingreso
-                </TabsTrigger>
-                <TabsTrigger value="expense" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400" data-testid="ftxn-expense-tab">
-                  <ArrowDownRight className="w-4 h-4 mr-1" /> Gasto
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* Category */}
-            <div className="space-y-1.5">
-              <Label className="text-gray-300 text-xs">Categoria</Label>
-              <Select value={txnForm.category} onValueChange={(v) => setTxnForm({ ...txnForm, category: v })}>
-                <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="ftxn-category">
-                  <SelectValue placeholder="Selecciona..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a2332] border-[#2a3444]">
-                  {currentCategories.map(cat => (
-                    <SelectItem key={cat} value={cat} className="text-gray-300 focus:bg-[#2a3444] focus:text-white">{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Amount */}
-            <div className="space-y-1.5">
-              <Label className="text-gray-300 text-xs">Monto (COP)</Label>
-              <CurrencyInput className="bg-[#141b2d] border-[#2a3444] text-white"
-                value={txnForm.amount} onChange={(v) => setTxnForm({ ...txnForm, amount: v })} data-testid="ftxn-amount" />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label className="text-gray-300 text-xs">Descripcion (opcional)</Label>
-              <Input placeholder="Ej: Almuerzo" className="bg-[#141b2d] border-[#2a3444] text-white"
-                value={txnForm.description} onChange={(e) => setTxnForm({ ...txnForm, description: e.target.value })} data-testid="ftxn-desc" />
-            </div>
-
-            {/* Date */}
-            <div className="space-y-1.5">
-              <Label className="text-gray-300 text-xs">Fecha</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left bg-[#141b2d] border-[#2a3444] text-white hover:bg-[#2a3444]" data-testid="ftxn-date">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(txnForm.date, "PPP", { locale: es })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444]" align="start">
-                  <Calendar mode="single" selected={txnForm.date} onSelect={(d) => d && setTxnForm({ ...txnForm, date: d })} initialFocus className="bg-[#1a2332]" />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Bank */}
-            {banks.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-gray-300 text-xs">Banco (opcional)</Label>
-                <Select value={txnForm.bank || "none"} onValueChange={(v) => setTxnForm({ ...txnForm, bank: v === "none" ? "" : v })}>
-                  <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin especificar</SelectItem>
-                    {banks.map(b => <SelectItem key={b.bank_id} value={b.name}>{b.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Pocket selector (for expenses) */}
-            {txnForm.type === "expense" && pockets.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-gray-300 text-xs">Usar bolsillo (opcional)</Label>
-                <Select value={txnForm.pocket_id || "none"} onValueChange={(v) => setTxnForm({ ...txnForm, pocket_id: v === "none" ? "" : v })}>
-                  <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="ftxn-pocket">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a2332] border-[#2a3444]">
-                    <SelectItem value="none">Sin bolsillo</SelectItem>
-                    {pockets.map(p => (
-                      <SelectItem key={p.pocket_id} value={p.pocket_id}>
-                        {p.name} ({formatCurrency(p.balance)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Savings / Debt target (for expenses) */}
-            {txnForm.type === "expense" && (savingsGoals.length > 0 || debts.length > 0) && (
-              <div className="space-y-2 p-3 rounded-lg border border-[#2a3444]">
-                <p className="text-xs text-gray-400 font-medium">Destino especial (opcional)</p>
-                {savingsGoals.length > 0 && (
-                  <div className="space-y-1">
-                    <Label className="text-gray-400 text-[10px]">Aportar a ahorro</Label>
-                    <Select value={txnForm.savings_goal_id || "none"} onValueChange={(v) => setTxnForm({ ...txnForm, savings_goal_id: v === "none" ? "" : v, debt_id: "" })}>
-                      <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs" data-testid="ftxn-savings">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a2332] border-[#2a3444]">
-                        <SelectItem value="none">Ninguno</SelectItem>
-                        {savingsGoals.map(g => (
-                          <SelectItem key={g.goal_id} value={g.goal_id}>
-                            {g.name} ({formatCurrency(g.current_amount)}/{formatCurrency(g.target_amount)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {debts.length > 0 && (
-                  <div className="space-y-1">
-                    <Label className="text-gray-400 text-[10px]">Pagar deuda</Label>
-                    <Select value={txnForm.debt_id || "none"} onValueChange={(v) => setTxnForm({ ...txnForm, debt_id: v === "none" ? "" : v, savings_goal_id: "" })}>
-                      <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs" data-testid="ftxn-debt">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a2332] border-[#2a3444]">
-                        <SelectItem value="none">Ninguna</SelectItem>
-                        {debts.map(d => (
-                          <SelectItem key={d.debt_id} value={d.debt_id}>
-                            {d.name} (Saldo: {formatCurrency(d.current_amount)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full btn-gold rounded-md" data-testid="ftxn-submit">
-              Guardar transaccion
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
