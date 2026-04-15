@@ -52,13 +52,19 @@ const Transactions = () => {
     amount: "",
     description: "",
     date: new Date(),
-    bank: ""
+    bank: "",
+    pocket_id: "",
+    savings_goal_id: "",
+    debt_id: ""
   });
   const [banks, setBanks] = useState([]);
   const [isShared, setIsShared] = useState(false);
   const [sharedWith, setSharedWith] = useState("");
   const [myPercentage, setMyPercentage] = useState("50");
   const [connections, setConnections] = useState([]);
+  const [pockets, setPockets] = useState([]);
+  const [savingsGoals, setSavingsGoals] = useState([]);
+  const [debts, setDebts] = useState([]);
 
   const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"
@@ -73,6 +79,7 @@ const Transactions = () => {
     fetchCategories();
     fetchBanks();
     fetchConnections();
+    fetchPocketsAndGoals();
   }, []);
 
   const fetchConnections = async () => {
@@ -100,6 +107,20 @@ const Transactions = () => {
       if (response.data.expense) setExpenseCategories(response.data.expense);
     } catch (error) {
       console.error("Error fetching categories:", error);
+    }
+  };
+
+  const fetchPocketsAndGoals = async () => {
+    try {
+      const [pRes, dRes] = await Promise.all([
+        axios.get(`${API}/dashboard`, { withCredentials: true }),
+        axios.get(`${API}/pockets`, { withCredentials: true })
+      ]);
+      setPockets(pRes.data?.pockets || dRes.data || []);
+      setSavingsGoals(pRes.data?.savings_goals || []);
+      setDebts(pRes.data?.debts || []);
+    } catch (error) {
+      console.error("Error fetching pockets/goals:", error);
     }
   };
 
@@ -147,7 +168,10 @@ const Transactions = () => {
           amount: parseInt(formData.amount) || 0,
           description: formData.description || null,
           date: formData.date.toISOString(),
-          bank: formData.bank || null
+          bank: formData.bank || null,
+          pocket_id: formData.pocket_id || null,
+          savings_goal_id: formData.savings_goal_id || null,
+          debt_id: formData.debt_id || null
         }, { withCredentials: true });
         toast.success("Transaccion agregada");
       }
@@ -159,7 +183,10 @@ const Transactions = () => {
         amount: "",
         description: "",
         date: new Date(),
-        bank: ""
+        bank: "",
+        pocket_id: "",
+        savings_goal_id: "",
+        debt_id: ""
       });
       setIsShared(false);
       setSharedWith("");
@@ -409,6 +436,57 @@ const Transactions = () => {
                           <span>Otro: {100 - parseInt(myPercentage)}%</span>
                         </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pocket selector (for expenses) */}
+              {formData.type === "expense" && pockets.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-gray-300 text-xs">Usar bolsillo (opcional)</Label>
+                  <Select value={formData.pocket_id || "none"} onValueChange={(v) => setFormData({ ...formData, pocket_id: v === "none" ? "" : v })}>
+                    <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="txn-pocket-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                      <SelectItem value="none">Sin bolsillo</SelectItem>
+                      {pockets.map(p => (
+                        <SelectItem key={p.pocket_id} value={p.pocket_id}>
+                          {p.name} (${new Intl.NumberFormat('es-CO').format(p.balance)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Savings / Debt (for expenses) */}
+              {formData.type === "expense" && (savingsGoals.length > 0 || debts.length > 0) && (
+                <div className="space-y-2 p-3 rounded-lg border border-[#2a3444]">
+                  <p className="text-xs text-gray-400 font-medium">Destino especial (opcional)</p>
+                  {savingsGoals.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-gray-400 text-[10px]">Aportar a ahorro</Label>
+                      <Select value={formData.savings_goal_id || "none"} onValueChange={(v) => setFormData({ ...formData, savings_goal_id: v === "none" ? "" : v, debt_id: "" })}>
+                        <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                          <SelectItem value="none">Ninguno</SelectItem>
+                          {savingsGoals.map(g => <SelectItem key={g.goal_id} value={g.goal_id}>{g.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {debts.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-gray-400 text-[10px]">Pagar deuda</Label>
+                      <Select value={formData.debt_id || "none"} onValueChange={(v) => setFormData({ ...formData, debt_id: v === "none" ? "" : v, savings_goal_id: "" })}>
+                        <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                          <SelectItem value="none">Ninguna</SelectItem>
+                          {debts.map(d => <SelectItem key={d.debt_id} value={d.debt_id}>{d.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>

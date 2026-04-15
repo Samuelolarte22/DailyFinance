@@ -106,6 +106,9 @@ class TransactionCreate(BaseModel):
     description: Optional[str] = None
     date: Optional[str] = None
     bank: Optional[str] = None
+    pocket_id: Optional[str] = None
+    savings_goal_id: Optional[str] = None
+    debt_id: Optional[str] = None
 
 class Debt(BaseModel):
     debt_id: str = Field(default_factory=lambda: f"debt_{uuid.uuid4().hex[:12]}")
@@ -198,6 +201,14 @@ class BudgetCreate(BaseModel):
 
 class BankCreate(BaseModel):
     name: str
+
+# ============== POCKET MODELS ==============
+
+class PocketCreate(BaseModel):
+    name: str
+
+class PocketFund(BaseModel):
+    amount: float
 
 # ============== SOCIAL/CONNECTION MODELS ==============
 
@@ -377,19 +388,44 @@ async def get_transactions(request: Request):
 
 @api_router.post("/transactions")
 async def create_transaction(txn_data: TransactionCreate, request: Request):
-    """Create a new transaction"""
+    """Create a new transaction. Optionally deducts from pocket, contributes to savings, or pays debt."""
     user = await get_current_user(request)
     
-    txn = Transaction(
-        user_id=user["user_id"],
-        **txn_data.model_dump(exclude={"date"})
-    )
+    # Build transaction doc, exclude special fields
+    txn_dict = txn_data.model_dump(exclude={"date", "pocket_id", "savings_goal_id", "debt_id"})
+    txn = Transaction(user_id=user["user_id"], **txn_dict)
     
     if txn_data.date:
         txn.date = datetime.fromisoformat(txn_data.date.replace('Z', '+00:00'))
     
     doc = txn.model_dump()
     doc["date"] = doc["date"].isoformat()
+    
+    # Store pocket reference if provided
+    if txn_data.pocket_id:
+        doc["pocket_id"] = txn_data.pocket_id
+        # Deduct from pocket (allow negative balance)
+        await db.pockets.update_one(
+            {"pocket_id": txn_data.pocket_id, "user_id": user["user_id"]},
+            {"$inc": {"balance": -txn_data.amount}}
+        )
+    
+    # If contributing to savings goal
+    if txn_data.savings_goal_id:
+        doc["savings_goal_id"] = txn_data.savings_goal_id
+        await db.savings_goals.update_one(
+            {"goal_id": txn_data.savings_goal_id, "user_id": user["user_id"]},
+            {"$inc": {"current_amount": txn_data.amount}}
+        )
+    
+    # If paying a debt
+    if txn_data.debt_id:
+        doc["debt_id"] = txn_data.debt_id
+        await db.debts.update_one(
+            {"debt_id": txn_data.debt_id, "user_id": user["user_id"]},
+            {"$inc": {"current_amount": -txn_data.amount}}
+        )
+    
     await db.transactions.insert_one(doc)
     
     return {"message": "Transaction created", "transaction_id": txn.transaction_id}
@@ -679,6 +715,8 @@ async def get_dashboard(request: Request):
     total_debt = sum(d["current_amount"] for d in debts)
     total_savings = sum(s["current_amount"] for s in savings)
     
+    pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    
     recent_transactions = transactions[:5]
     
     return {
@@ -690,7 +728,10 @@ async def get_dashboard(request: Request):
         "recent_transactions": recent_transactions,
         "all_transactions": transactions,
         "debts_count": len(debts),
-        "savings_goals_count": len(savings)
+        "savings_goals_count": len(savings),
+        "pockets": pockets,
+        "debts": debts,
+        "savings_goals": savings
     }
 
 # ============== HEALTH CHECK ==============
@@ -982,12 +1023,18 @@ async def delete_budget(budget_id: str, request: Request):
 
 @api_router.get("/budgets/comparison")
 async def get_budget_comparison(request: Request, month: Optional[str] = None, budget_type: Optional[str] = "expense"):
-    """Get budget vs actual spending/income for each category in a month"""
+    """Get budget vs actual spending/income for ALL user categories in a month"""
     user = await get_current_user(request)
     
     if not month:
         now = datetime.now(timezone.utc)
         month = f"{now.year}-{str(now.month).zfill(2)}"
+    
+    # Get ALL user categories of this type
+    user_cats = await db.categories.find(
+        {"user_id": user["user_id"], "type": budget_type}, {"_id": 0}
+    ).to_list(200)
+    all_user_cat_names = [c["name"] for c in user_cats]
     
     # Get budgets of the specified type
     budgets = await db.budgets.find(
@@ -997,7 +1044,7 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None, b
     budget_map = {b["category"]: b for b in budgets}
     
     # Get transactions of the matching type for the month
-    txn_type = budget_type  # "expense" or "income"
+    txn_type = budget_type
     all_txns = await db.transactions.find(
         {"user_id": user["user_id"], "type": txn_type},
         {"_id": 0}
@@ -1011,10 +1058,10 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None, b
             cat = txn["category"]
             category_totals[cat] = category_totals.get(cat, 0) + txn["amount"]
     
-    # Build comparison
-    comparison = []
-    all_categories = set(list(budget_map.keys()) + list(category_totals.keys()))
+    # Include ALL user categories + any with budgets/transactions
+    all_categories = set(all_user_cat_names + list(budget_map.keys()) + list(category_totals.keys()))
     
+    comparison = []
     for cat in sorted(all_categories):
         projected = budget_map.get(cat, {}).get("projected_amount", 0)
         actual = category_totals.get(cat, 0)
@@ -1069,6 +1116,59 @@ async def delete_bank(bank_id: str, request: Request):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Banco no encontrado")
     return {"message": "Banco eliminado"}
+
+
+# ============== POCKET ENDPOINTS ==============
+
+@api_router.get("/pockets")
+async def get_pockets(request: Request):
+    """Get all pockets for user"""
+    user = await get_current_user(request)
+    pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    return pockets
+
+@api_router.post("/pockets")
+async def create_pocket(pocket_data: PocketCreate, request: Request):
+    """Create a new digital pocket"""
+    user = await get_current_user(request)
+    
+    pocket_id = f"pkt_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "pocket_id": pocket_id,
+        "user_id": user["user_id"],
+        "name": pocket_data.name,
+        "balance": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.pockets.insert_one(doc)
+    return {"message": "Bolsillo creado", "pocket_id": pocket_id}
+
+@api_router.post("/pockets/{pocket_id}/fund")
+async def fund_pocket(pocket_id: str, fund_data: PocketFund, request: Request):
+    """Add money to a pocket from available balance"""
+    user = await get_current_user(request)
+    
+    pocket = await db.pockets.find_one(
+        {"pocket_id": pocket_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    if not pocket:
+        raise HTTPException(status_code=404, detail="Bolsillo no encontrado")
+    
+    await db.pockets.update_one(
+        {"pocket_id": pocket_id},
+        {"$inc": {"balance": fund_data.amount}}
+    )
+    return {"message": "Bolsillo fondeado", "new_balance": pocket["balance"] + fund_data.amount}
+
+@api_router.delete("/pockets/{pocket_id}")
+async def delete_pocket(pocket_id: str, request: Request):
+    """Delete a pocket"""
+    user = await get_current_user(request)
+    result = await db.pockets.delete_one({"pocket_id": pocket_id, "user_id": user["user_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bolsillo no encontrado")
+    return {"message": "Bolsillo eliminado"}
+
 
 # ============== ADMIN VIEW/EDIT USER DATA ==============
 
