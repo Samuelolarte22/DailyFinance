@@ -82,6 +82,12 @@ const Transactions = () => {
     fetchPocketsAndGoals();
   }, []);
 
+  useEffect(() => {
+    const refresh = () => fetchTransactions();
+    window.addEventListener("transaction-created", refresh);
+    return () => window.removeEventListener("transaction-created", refresh);
+  }, []);
+
   const fetchConnections = async () => {
     try {
       const response = await axios.get(`${API}/connections`, { withCredentials: true });

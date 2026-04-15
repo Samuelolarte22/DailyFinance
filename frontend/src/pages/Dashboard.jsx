@@ -43,6 +43,12 @@ const Dashboard = () => {
     fetchBudgetComparison();
   }, [selectedMonth]);
 
+  useEffect(() => {
+    const refresh = () => { fetchDashboard(); fetchBudgetComparison(); };
+    window.addEventListener("transaction-created", refresh);
+    return () => window.removeEventListener("transaction-created", refresh);
+  }, [selectedMonth]);
+
   const fetchDashboard = async () => {
     try {
       const response = await axios.get(`${API}/dashboard`, { withCredentials: true });
@@ -338,11 +344,11 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Recent Transactions */}
+      {/* Recent Transactions - last 3 */}
       <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="monthly-transactions-card">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-white text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
-            Transacciones de {getMonthName(selectedMonth)}
+            Ultimas transacciones
           </CardTitle>
           <Link to="/transactions">
             <Button variant="ghost" size="sm" className="text-[#D4AF37] hover:text-[#D4AF37]/80 text-xs">Ver todas</Button>
@@ -351,7 +357,7 @@ const Dashboard = () => {
         <CardContent>
           {monthlyData.transactions?.length > 0 ? (
             <div className="space-y-2">
-              {monthlyData.transactions.map((txn, index) => (
+              {monthlyData.transactions.slice(0, 3).map((txn, index) => (
                 <div key={txn.transaction_id || index}
                   className="flex items-center gap-3 p-2.5 rounded-lg bg-[#141b2d] border border-[#2a3444]">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${txn.type === 'income' ? 'bg-green-500/10' : 'bg-red-500/10'}`}>

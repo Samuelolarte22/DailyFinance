@@ -70,6 +70,8 @@ const FloatingTransaction = () => {
       toast.success("Transaccion registrada");
       setOpen(false);
       setForm({ type: "expense", category: "", amount: "", description: "", date: new Date(), bank: "", pocket_id: "", savings_goal_id: "", debt_id: "" });
+      // Notify other components to refresh
+      window.dispatchEvent(new Event("transaction-created"));
     } catch (error) {
       toast.error("Error al guardar");
     }
