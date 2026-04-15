@@ -153,10 +153,12 @@ const Dashboard = () => {
   const getMonthlyData = () => {
     if (!dashboardData?.recent_transactions) return { income: 0, expenses: 0, transactions: [] };
     const allTransactions = dashboardData.all_transactions || dashboardData.recent_transactions;
-    const monthlyTransactions = allTransactions.filter(txn => txn.date.substring(0, 7) === selectedMonth);
+    const monthlyTransactions = allTransactions
+      .filter(txn => txn.date.substring(0, 7) === selectedMonth)
+      .sort((a, b) => b.date.localeCompare(a.date));
     const income = monthlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const expenses = monthlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    return { income, expenses, balance: income - expenses, transactions: monthlyTransactions.slice(0, 5) };
+    return { income, expenses, balance: income - expenses, transactions: monthlyTransactions.slice(0, 3) };
   };
 
   // Projected totals
