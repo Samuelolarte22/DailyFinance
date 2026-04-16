@@ -16,6 +16,7 @@ import AdvisorChat from "../components/AdvisorChat";
 import CurrencyInput from "../components/CurrencyInput";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Toaster, toast } from "sonner";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -569,9 +570,86 @@ const Dashboard = () => {
         </Link>
       </div>
 
+      {/* Expense Pie Chart by Category */}
+      <CategoryPieChart transactions={dashboardData?.all_transactions || []} selectedMonth={selectedMonth} formatCurrency={formatCurrency} />
+
       {/* Advisor Chat */}
       <AdvisorChat selectedMonth={selectedMonth} />
     </div>
+  );
+};
+
+const CHART_COLORS = [
+  "#D4AF37", "#ef4444", "#22c55e", "#8b5cf6", "#f97316",
+  "#06b6d4", "#ec4899", "#eab308", "#14b8a6", "#6366f1",
+  "#f43f5e", "#84cc16"
+];
+
+const CategoryPieChart = ({ transactions, selectedMonth, formatCurrency }) => {
+  const monthlyExpenses = (transactions || [])
+    .filter(t => t.type === "expense" && t.date?.substring(0, 7) === selectedMonth);
+
+  const categoryTotals = {};
+  let total = 0;
+  for (const t of monthlyExpenses) {
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    total += t.amount;
+  }
+
+  const data = Object.entries(categoryTotals)
+    .map(([name, value]) => ({ name, value, pct: total > 0 ? Math.round((value / total) * 100) : 0 }))
+    .sort((a, b) => b.value - a.value);
+
+  if (data.length === 0) return null;
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="bg-[#1a2332] border border-[#2a3444] rounded-lg px-3 py-2 shadow-xl">
+        <p className="text-white text-sm font-medium">{d.name}</p>
+        <p className="text-[#D4AF37] font-mono text-sm">{formatCurrency(d.value)}</p>
+        <p className="text-gray-400 text-xs">{d.pct}% del total</p>
+      </div>
+    );
+  };
+
+  return (
+    <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="category-pie-chart">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-white flex items-center gap-2 text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
+          <PiggyBank className="w-5 h-5 text-[#D4AF37]" />
+          Gastos por Categoria
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="w-48 h-48 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={72}
+                  paddingAngle={2} strokeWidth={0}>
+                  {data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5 w-full">
+            {data.map((d, i) => (
+              <div key={d.name} className="flex items-center gap-2 min-w-0" data-testid={`pie-legend-${d.name}`}>
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                <span className="text-xs text-gray-300 truncate">{d.name}</span>
+                <span className="text-xs font-mono text-gray-500 ml-auto shrink-0">{d.pct}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="text-center text-xs text-gray-500 mt-3 font-mono">
+          Total: {formatCurrency(total)}
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 

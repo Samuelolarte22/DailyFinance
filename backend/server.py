@@ -694,6 +694,141 @@ async def get_reports(request: Request):
         }
     }
 
+# ============== REPORTS TIMELINE ENDPOINT ==============
+
+@api_router.get("/reports/timeline")
+async def get_reports_timeline(request: Request, period: str = "month"):
+    """Get debt and savings time series data for charts.
+    period: 'week', 'month', or 'year'
+    """
+    user = await get_current_user(request)
+    
+    debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    transactions = await db.transactions.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(5000)
+    
+    # Current totals
+    current_debt = sum(d["current_amount"] for d in debts)
+    current_savings = sum(s["current_amount"] for s in savings)
+    
+    # Collect all debt payments and savings contributions sorted by date
+    debt_events = []
+    savings_events = []
+    for txn in transactions:
+        date_str = txn["date"][:10] if isinstance(txn["date"], str) else txn["date"].strftime("%Y-%m-%d")
+        if txn.get("debt_id"):
+            debt_events.append({"date": date_str, "amount": txn["amount"]})
+        if txn.get("savings_goal_id"):
+            savings_events.append({"date": date_str, "amount": txn["amount"]})
+    
+    # Sort by date descending (most recent first) for reverse computation
+    debt_events.sort(key=lambda x: x["date"], reverse=True)
+    savings_events.sort(key=lambda x: x["date"], reverse=True)
+    
+    # Also account for debt creation dates and their total amounts
+    debt_creations = []
+    for d in debts:
+        created = d.get("created_at", "")
+        if isinstance(created, str):
+            date_str = created[:10]
+        else:
+            date_str = created.strftime("%Y-%m-%d")
+        debt_creations.append({"date": date_str, "total_amount": d["total_amount"]})
+    debt_creations.sort(key=lambda x: x["date"], reverse=True)
+    
+    # Collect all unique dates and group by period
+    all_dates = set()
+    for e in debt_events:
+        all_dates.add(e["date"])
+    for e in savings_events:
+        all_dates.add(e["date"])
+    for d in debt_creations:
+        all_dates.add(d["date"])
+    # Add today
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    all_dates.add(today)
+    
+    if not all_dates:
+        return {"timeline": [], "period": period}
+    
+    # Group dates by period
+    def get_period_key(date_str):
+        if period == "year":
+            return date_str[:4]
+        elif period == "week":
+            from datetime import date as dt_date
+            parts = date_str.split("-")
+            d = dt_date(int(parts[0]), int(parts[1]), int(parts[2]))
+            iso = d.isocalendar()
+            return f"{iso[0]}-W{iso[1]:02d}"
+        else:  # month
+            return date_str[:7]
+    
+    # Build period-level debt payment and savings contribution totals
+    period_debt_payments = {}
+    for e in debt_events:
+        pk = get_period_key(e["date"])
+        period_debt_payments[pk] = period_debt_payments.get(pk, 0) + e["amount"]
+    
+    period_savings_contribs = {}
+    for e in savings_events:
+        pk = get_period_key(e["date"])
+        period_savings_contribs[pk] = period_savings_contribs.get(pk, 0) + e["amount"]
+    
+    period_debt_creations = {}
+    for d in debt_creations:
+        pk = get_period_key(d["date"])
+        period_debt_creations[pk] = period_debt_creations.get(pk, 0) + d["total_amount"]
+    
+    # Get all unique period keys sorted
+    all_period_keys = set()
+    all_period_keys.update(period_debt_payments.keys())
+    all_period_keys.update(period_savings_contribs.keys())
+    all_period_keys.update(period_debt_creations.keys())
+    current_period = get_period_key(today)
+    all_period_keys.add(current_period)
+    sorted_periods = sorted(all_period_keys)
+    
+    # Compute running totals: start from current and go backwards
+    # At current period, debt = current_debt, savings = current_savings
+    # Going backwards: reverse debt payments (add back), reverse savings (subtract back)
+    # reverse debt creations (subtract)
+    timeline_data = {}
+    debt_val = current_debt
+    savings_val = current_savings
+    
+    # Process from most recent to oldest
+    for pk in reversed(sorted_periods):
+        timeline_data[pk] = {"debt": round(debt_val), "savings": round(savings_val)}
+        # Reverse: going to the previous period means undoing this period's changes
+        # Debt: payments reduced debt, so add them back; new debts added debt, so subtract them
+        debt_val = debt_val + period_debt_payments.get(pk, 0) - period_debt_creations.get(pk, 0)
+        savings_val = savings_val - period_savings_contribs.get(pk, 0)
+    
+    # Build final sorted timeline
+    timeline = []
+    for pk in sorted_periods:
+        data = timeline_data.get(pk, {"debt": 0, "savings": 0})
+        # Create label
+        if period == "year":
+            label = pk
+        elif period == "week":
+            label = pk
+        else:
+            parts = pk.split("-")
+            months_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+            month_idx = int(parts[1]) - 1 if len(parts) > 1 else 0
+            label = f"{months_es[month_idx]} {parts[0][2:]}"
+        
+        timeline.append({
+            "period": pk,
+            "label": label,
+            "debt": max(0, data["debt"]),
+            "savings": max(0, data["savings"])
+        })
+    
+    return {"timeline": timeline, "period": period}
+
 # ============== DASHBOARD SUMMARY ==============
 
 @api_router.get("/dashboard")

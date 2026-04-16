@@ -11,9 +11,82 @@ import { Calendar } from "./ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, ArrowUpRight, ArrowDownRight, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Calendar as CalendarIcon, Calculator, Users } from "lucide-react";
 import CurrencyInput from "./CurrencyInput";
 import { toast } from "sonner";
+
+const QuickCalculator = ({ onResult }) => {
+  const [display, setDisplay] = useState("0");
+  const [prev, setPrev] = useState(null);
+  const [op, setOp] = useState(null);
+  const [fresh, setFresh] = useState(true);
+
+  const input = (val) => {
+    if (fresh) { setDisplay(val); setFresh(false); }
+    else setDisplay(display === "0" ? val : display + val);
+  };
+
+  const operate = (nextOp) => {
+    const current = parseFloat(display) || 0;
+    if (prev !== null && op) {
+      let result = prev;
+      if (op === "+") result = prev + current;
+      if (op === "-") result = prev - current;
+      if (op === "*") result = prev * current;
+      if (op === "/") result = current !== 0 ? prev / current : 0;
+      setPrev(result);
+      setDisplay(String(Math.round(result)));
+    } else {
+      setPrev(current);
+    }
+    setOp(nextOp);
+    setFresh(true);
+  };
+
+  const calculate = () => {
+    operate(null);
+    setOp(null);
+    setFresh(true);
+  };
+
+  const clear = () => { setDisplay("0"); setPrev(null); setOp(null); setFresh(true); };
+
+  const useValue = () => {
+    const val = Math.round(parseFloat(display) || 0);
+    onResult(String(val));
+  };
+
+  const btnClass = "h-8 text-xs font-mono rounded bg-[#141b2d] border border-[#2a3444] text-white hover:bg-[#2a3444] transition-colors";
+  const opClass = "h-8 text-xs font-mono rounded bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors";
+
+  return (
+    <div className="space-y-2 p-3 rounded-lg border border-[#D4AF37]/30 bg-[#141b2d]/50" data-testid="quick-calculator">
+      <div className="bg-[#0d1117] rounded px-3 py-2 text-right font-mono text-lg text-white border border-[#2a3444]" data-testid="calc-display">
+        {new Intl.NumberFormat('es-CO').format(parseFloat(display) || 0)}
+        {op && <span className="text-[#D4AF37] ml-1 text-sm">{op}</span>}
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {["7","8","9","/","4","5","6","*","1","2","3","-","0","00",".","+"].map(key => (
+          <button key={key} type="button"
+            className={["/","*","-","+"].includes(key) ? opClass : btnClass}
+            onClick={() => ["/","*","-","+"].includes(key) ? operate(key) : input(key)}
+            data-testid={`calc-btn-${key}`}>
+            {key}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <button type="button" className={`${btnClass} bg-red-500/10 text-red-400 border-red-500/30`} onClick={clear} data-testid="calc-btn-clear">C</button>
+        <button type="button" className={`${opClass}`} onClick={calculate} data-testid="calc-btn-equals">=</button>
+        <button type="button"
+          className="h-8 text-xs font-medium rounded bg-[#D4AF37] text-[#141b2d] hover:bg-[#D4AF37]/90 transition-colors"
+          onClick={useValue} data-testid="calc-btn-use">
+          Usar
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const FloatingTransaction = () => {
   const [open, setOpen] = useState(false);
@@ -27,6 +100,13 @@ const FloatingTransaction = () => {
   const [pockets, setPockets] = useState([]);
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [debts, setDebts] = useState([]);
+  // Shared transaction
+  const [connections, setConnections] = useState([]);
+  const [isShared, setIsShared] = useState(false);
+  const [sharedWith, setSharedWith] = useState("");
+  const [myPercentage, setMyPercentage] = useState("50");
+  // Calculator
+  const [showCalc, setShowCalc] = useState(false);
 
   useEffect(() => {
     if (open) loadData();
@@ -34,10 +114,11 @@ const FloatingTransaction = () => {
 
   const loadData = async () => {
     try {
-      const [catRes, bankRes, dashRes] = await Promise.all([
+      const [catRes, bankRes, dashRes, connRes] = await Promise.all([
         axios.get(`${API}/categories`, { withCredentials: true }),
         axios.get(`${API}/banks`, { withCredentials: true }),
-        axios.get(`${API}/dashboard`, { withCredentials: true })
+        axios.get(`${API}/dashboard`, { withCredentials: true }),
+        axios.get(`${API}/connections`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setExpenseCategories(catRes.data.expense || []);
       setIncomeCategories(catRes.data.income || []);
@@ -45,6 +126,7 @@ const FloatingTransaction = () => {
       setPockets(dashRes.data.pockets || []);
       setSavingsGoals(dashRes.data.savings_goals || []);
       setDebts(dashRes.data.debts || []);
+      setConnections(connRes.data || []);
     } catch (error) {
       console.error(error);
     }
@@ -56,24 +138,42 @@ const FloatingTransaction = () => {
     e.preventDefault();
     if (!form.category || !form.amount) { toast.error("Completa categoria y monto"); return; }
     try {
-      await axios.post(`${API}/transactions`, {
-        type: form.type,
-        category: form.category,
-        amount: parseInt(form.amount),
-        description: form.description || undefined,
-        date: format(form.date, "yyyy-MM-dd"),
-        bank: form.bank || undefined,
-        pocket_id: form.pocket_id || undefined,
-        savings_goal_id: form.savings_goal_id || undefined,
-        debt_id: form.debt_id || undefined
-      }, { withCredentials: true });
-      toast.success("Transaccion registrada");
+      if (isShared && sharedWith) {
+        await axios.post(`${API}/transactions/shared`, {
+          type: form.type,
+          category: form.category,
+          amount: parseInt(form.amount),
+          description: form.description || undefined,
+          date: format(form.date, "yyyy-MM-dd"),
+          bank: form.bank || undefined,
+          shared_with: sharedWith,
+          my_percentage: parseFloat(myPercentage),
+          friend_percentage: 100 - parseFloat(myPercentage)
+        }, { withCredentials: true });
+        toast.success("Transaccion compartida creada");
+      } else {
+        await axios.post(`${API}/transactions`, {
+          type: form.type,
+          category: form.category,
+          amount: parseInt(form.amount),
+          description: form.description || undefined,
+          date: format(form.date, "yyyy-MM-dd"),
+          bank: form.bank || undefined,
+          pocket_id: form.pocket_id || undefined,
+          savings_goal_id: form.savings_goal_id || undefined,
+          debt_id: form.debt_id || undefined
+        }, { withCredentials: true });
+        toast.success("Transaccion registrada");
+      }
       setOpen(false);
       setForm({ type: "expense", category: "", amount: "", description: "", date: new Date(), bank: "", pocket_id: "", savings_goal_id: "", debt_id: "" });
-      // Notify other components to refresh
+      setIsShared(false);
+      setSharedWith("");
+      setMyPercentage("50");
+      setShowCalc(false);
       window.dispatchEvent(new Event("transaction-created"));
     } catch (error) {
-      toast.error("Error al guardar");
+      toast.error(error?.response?.data?.detail || "Error al guardar");
     }
   };
 
@@ -116,7 +216,18 @@ const FloatingTransaction = () => {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-gray-300 text-xs">Monto (COP)</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-gray-300 text-xs">Monto (COP)</Label>
+              <button type="button" onClick={() => setShowCalc(!showCalc)}
+                className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${showCalc ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-[#2a3444] text-gray-400 hover:text-white'}`}
+                data-testid="ftxn-calc-toggle">
+                <Calculator className="w-3 h-3" />
+                Calculadora
+              </button>
+            </div>
+            {showCalc && (
+              <QuickCalculator onResult={(val) => setForm({ ...form, amount: val })} />
+            )}
             <CurrencyInput className="bg-[#141b2d] border-[#2a3444] text-white"
               value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} data-testid="ftxn-amount" />
           </div>
@@ -155,7 +266,43 @@ const FloatingTransaction = () => {
             </div>
           )}
 
-          {form.type === "expense" && pockets.length > 0 && (
+          {/* Shared Transaction */}
+          {connections.length > 0 && (
+            <div className="space-y-2 p-3 rounded-lg border border-[#2a3444]">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={isShared} onChange={(e) => setIsShared(e.target.checked)}
+                  className="rounded border-[#2a3444]" id="ftxn-shared-check" data-testid="ftxn-shared-check" />
+                <Label htmlFor="ftxn-shared-check" className="text-gray-300 text-xs cursor-pointer flex items-center gap-1">
+                  <Users className="w-3 h-3" /> Compartir con alguien
+                </Label>
+              </div>
+              {isShared && (
+                <div className="space-y-2">
+                  <Select value={sharedWith} onValueChange={setSharedWith}>
+                    <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs" data-testid="ftxn-shared-with">
+                      <SelectValue placeholder="Seleccionar contacto..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                      {connections.map(c => <SelectItem key={c.user_id} value={c.user_id} className="text-gray-300">{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="space-y-1">
+                    <Label className="text-gray-400 text-[10px]">Mi porcentaje: {myPercentage}%</Label>
+                    <input type="range" min="1" max="99" value={myPercentage}
+                      onChange={(e) => setMyPercentage(e.target.value)}
+                      className="w-full accent-[#D4AF37]" data-testid="ftxn-percentage-slider" />
+                    <div className="flex justify-between text-[10px] text-gray-500">
+                      <span>Yo: {myPercentage}%</span>
+                      <span>Otro: {100 - parseInt(myPercentage)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pocket / Savings / Debt (only when NOT shared) */}
+          {!isShared && form.type === "expense" && pockets.length > 0 && (
             <div className="space-y-1.5">
               <Label className="text-gray-300 text-xs">Usar bolsillo (opcional)</Label>
               <Select value={form.pocket_id || "none"} onValueChange={(v) => setForm({ ...form, pocket_id: v === "none" ? "" : v })}>
@@ -170,7 +317,7 @@ const FloatingTransaction = () => {
             </div>
           )}
 
-          {form.type === "expense" && (savingsGoals.length > 0 || debts.length > 0) && (
+          {!isShared && form.type === "expense" && (savingsGoals.length > 0 || debts.length > 0) && (
             <div className="space-y-2 p-3 rounded-lg border border-[#2a3444]">
               <p className="text-xs text-gray-400 font-medium">Destino especial (opcional)</p>
               {savingsGoals.length > 0 && (
@@ -201,7 +348,7 @@ const FloatingTransaction = () => {
           )}
 
           <Button type="submit" className="w-full btn-gold rounded-md" data-testid="ftxn-submit">
-            Guardar transaccion
+            {isShared ? "Compartir transaccion" : "Guardar transaccion"}
           </Button>
         </form>
       </DialogContent>

@@ -30,18 +30,18 @@ print('User ID: ' + userId);
 
 ```bash
 # Test auth endpoint
-curl -X GET "https://ldfinance-preview.preview.emergentagent.com/api/auth/me" \
+curl -X GET "https://finanzas-dashboard-4.preview.emergentagent.com/api/auth/me" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
 # Test dashboard
-curl -X GET "https://ldfinance-preview.preview.emergentagent.com/api/dashboard" \
+curl -X GET "https://finanzas-dashboard-4.preview.emergentagent.com/api/dashboard" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
 # Test transactions
-curl -X GET "https://ldfinance-preview.preview.emergentagent.com/api/transactions" \
+curl -X GET "https://finanzas-dashboard-4.preview.emergentagent.com/api/transactions" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
-curl -X POST "https://ldfinance-preview.preview.emergentagent.com/api/transactions" \
+curl -X POST "https://finanzas-dashboard-4.preview.emergentagent.com/api/transactions" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
   -d '{"type": "income", "category": "Salario", "amount": 500000}'
@@ -60,7 +60,7 @@ await page.context.add_cookies([{
     "secure": true,
     "sameSite": "None"
 }]);
-await page.goto("https://ldfinance-preview.preview.emergentagent.com");
+await page.goto("https://finanzas-dashboard-4.preview.emergentagent.com");
 ```
 
 ## Quick Debug

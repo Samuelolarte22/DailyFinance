@@ -36,6 +36,70 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
+import { Calculator } from "lucide-react";
+
+const QuickCalculator = ({ onResult }) => {
+  const [display, setDisplay] = useState("0");
+  const [prev, setPrev] = useState(null);
+  const [op, setOp] = useState(null);
+  const [fresh, setFresh] = useState(true);
+
+  const input = (val) => {
+    if (fresh) { setDisplay(val); setFresh(false); }
+    else setDisplay(display === "0" ? val : display + val);
+  };
+
+  const operate = (nextOp) => {
+    const current = parseFloat(display) || 0;
+    if (prev !== null && op) {
+      let result = prev;
+      if (op === "+") result = prev + current;
+      if (op === "-") result = prev - current;
+      if (op === "*") result = prev * current;
+      if (op === "/") result = current !== 0 ? prev / current : 0;
+      setPrev(result);
+      setDisplay(String(Math.round(result)));
+    } else {
+      setPrev(current);
+    }
+    setOp(nextOp);
+    setFresh(true);
+  };
+
+  const calculate = () => { operate(null); setOp(null); setFresh(true); };
+  const clear = () => { setDisplay("0"); setPrev(null); setOp(null); setFresh(true); };
+  const useValue = () => onResult(String(Math.round(parseFloat(display) || 0)));
+
+  const btnClass = "h-8 text-xs font-mono rounded bg-[#141b2d] border border-[#2a3444] text-white hover:bg-[#2a3444] transition-colors";
+  const opClass = "h-8 text-xs font-mono rounded bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors";
+
+  return (
+    <div className="space-y-2 p-3 rounded-lg border border-[#D4AF37]/30 bg-[#141b2d]/50" data-testid="txn-quick-calculator">
+      <div className="bg-[#0d1117] rounded px-3 py-2 text-right font-mono text-lg text-white border border-[#2a3444]">
+        {new Intl.NumberFormat('es-CO').format(parseFloat(display) || 0)}
+        {op && <span className="text-[#D4AF37] ml-1 text-sm">{op}</span>}
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {["7","8","9","/","4","5","6","*","1","2","3","-","0","00",".","+"].map(key => (
+          <button key={key} type="button"
+            className={["/","*","-","+"].includes(key) ? opClass : btnClass}
+            onClick={() => ["/","*","-","+"].includes(key) ? operate(key) : input(key)}>
+            {key}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <button type="button" className={`${btnClass} bg-red-500/10 text-red-400 border-red-500/30`} onClick={clear}>C</button>
+        <button type="button" className={opClass} onClick={calculate}>=</button>
+        <button type="button"
+          className="h-8 text-xs font-medium rounded bg-[#D4AF37] text-[#141b2d] hover:bg-[#D4AF37]/90 transition-colors"
+          onClick={useValue} data-testid="txn-calc-use-btn">
+          Usar
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -65,6 +129,7 @@ const Transactions = () => {
   const [pockets, setPockets] = useState([]);
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [showCalc, setShowCalc] = useState(false);
 
   const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"
@@ -343,9 +408,20 @@ const Transactions = () => {
                 </Select>
               </div>
 
-              {/* Amount */}
+              {/* Amount with Calculator */}
               <div className="space-y-2">
-                <Label className="text-gray-300">Monto (COP)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-300">Monto (COP)</Label>
+                  <button type="button" onClick={() => setShowCalc(!showCalc)}
+                    className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${showCalc ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'bg-[#2a3444] text-gray-400 hover:text-white'}`}
+                    data-testid="txn-calc-toggle">
+                    <Calculator className="w-3 h-3" />
+                    Calculadora
+                  </button>
+                </div>
+                {showCalc && (
+                  <QuickCalculator onResult={(val) => setFormData({ ...formData, amount: val })} />
+                )}
                 <CurrencyInput
                   className="bg-[#141b2d] border-[#2a3444] text-white"
                   value={formData.amount}
