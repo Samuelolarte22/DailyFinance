@@ -54,26 +54,34 @@
 16. Categories now personal per user (with delete capability for all including defaults)
 
 ### Phase 5 - V3.0 Digital Pockets (April 2026)
-17. **Digital Pockets (Bolsillos)** — Create, fund from available balance, delete. Permanent (balance accumulates). Independent from categories.
-18. **Floating Transaction Button** — Fixed bottom-right gold button on Dashboard opens transaction dialog directly (no navigation to Transactions page).
-19. **Transactions → Savings/Debts** — When creating expense transaction, can optionally associate with a savings goal (increments) or debt (decrements). Also can select pocket to deduct from.
-20. **Scorecards with Projected** — Income/Expenses/Balance scorecards now show projected/expected amounts as smaller text below real amounts.
-21. **Budget Comparison Table** — Changed from card+progress bars to compact table format. Shows ALL user categories (no add/remove). Only edit budget amount. Totals row.
+17. **Digital Pockets (Bolsillos)** — Create, fund from available balance, delete.
+18. **Floating Transaction Button** — Fixed bottom-right gold button opens transaction dialog.
+19. **Transactions → Savings/Debts** — Expense transactions can link to savings goals or debts.
+20. **Scorecards with Projected** — Income/Expenses/Balance show projected amounts below real.
+21. **Budget Comparison Table** — Compact table format with ALL user categories.
+
+### Phase 6 - V4.0 Analytics & Tools (April 16, 2026)
+22. **Shared Transactions restored in FloatingTransaction** — Checkbox + contact selector + percentage slider for splitting expenses with connections.
+23. **Expense Pie Chart on Dashboard** — Donut chart showing % of expenses by category for the selected month, placed above Advisor Chat.
+24. **Debt vs Savings Timeline Chart** — Line chart in Reports page (red=debt, green=savings) with time period filters (week/month/year). Replaces old before/after comparison cards.
+25. **Quick Calculator** — Toggle calculator in both FloatingTransaction and Transactions dialog for quick math operations (+, -, *, /) before entering amounts.
 
 ## DB Collections
 - users, transactions, debts, savings_goals, surveys, user_sessions
 - categories, advisor_messages, budgets, banks, documents
 - connections, notifications, shared_transactions
-- **pockets** (NEW: pocket_id, user_id, name, balance, created_at)
+- pockets (pocket_id, user_id, name, balance, created_at)
 
 ## Key API Endpoints
 - Auth: /api/auth/session, /api/auth/me, /api/auth/logout
 - Pockets: /api/pockets (GET/POST), /api/pockets/{id}/fund (POST), /api/pockets/{id} (DELETE)
-- Transactions: /api/transactions (GET/POST) — now supports pocket_id, savings_goal_id, debt_id
-- Budgets: /api/budgets/comparison now returns ALL user categories
-- Dashboard: /api/dashboard now includes pockets, debts, savings_goals arrays
+- Transactions: /api/transactions (GET/POST) — supports pocket_id, savings_goal_id, debt_id
+- Shared Transactions: /api/transactions/shared (POST), /api/transactions/shared/{id}/accept, reject
+- Budgets: /api/budgets/comparison — returns ALL user categories
+- Dashboard: /api/dashboard — includes pockets, debts, savings_goals, all_transactions
 - Categories: /api/categories (GET/POST/DELETE) — personal per user
 - Admin: /api/admin/impersonate/{user_id}, /api/admin/stop-impersonation
+- **NEW:** /api/reports/timeline?period=week|month|year — Historical debt vs savings time series
 
 ## Configuration
 - Admin email: samuelolarte22@gmail.com
@@ -81,9 +89,11 @@
 - Language: Spanish
 
 ## Backlog
+- [ ] Agendamiento de Asesorias (Admin agenda reuniones, usuario las ve en Perfil)
 - [ ] Refactoring: Split server.py into routers and models
 - [ ] Export reports as PDF
 - [ ] Recurring transactions
 - [ ] Gamification social (ranking entre amigos)
 - [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
 - [ ] Resumen semanal por email
+- [ ] PWA / App nativa
