@@ -2234,6 +2234,152 @@ async def admin_delete_category(category_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Categoria no encontrada")
     return {"message": "Categoria eliminada"}
 
+# ============== MEETING/APPOINTMENT MODELS ==============
+
+class MeetingCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM (24h)
+    duration_minutes: int = 60
+    is_recurring: bool = False
+    recurrence: Optional[str] = None  # "weekly" or "monthly"
+
+class MeetingUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    is_recurring: Optional[bool] = None
+    recurrence: Optional[str] = None
+
+# ============== MEETING ENDPOINTS ==============
+
+@api_router.post("/admin/users/{user_id}/meetings")
+async def admin_create_meeting(user_id: str, meeting: MeetingCreate, request: Request):
+    """Admin schedules a meeting for a user"""
+    admin = await get_admin_user(request)
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    meeting_id = f"meet_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    doc = {
+        "meeting_id": meeting_id,
+        "user_id": user_id,
+        "admin_id": admin["user_id"],
+        "admin_name": admin.get("name", "Asesor"),
+        "title": meeting.title,
+        "description": meeting.description,
+        "date": meeting.date,
+        "time": meeting.time,
+        "duration_minutes": meeting.duration_minutes,
+        "is_recurring": meeting.is_recurring,
+        "recurrence": meeting.recurrence,
+        "status": "scheduled",
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.meetings.insert_one(doc)
+    
+    # Notify user
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "type": "meeting_scheduled",
+        "from_user_id": admin["user_id"],
+        "from_user_name": admin.get("name", "Asesor"),
+        "message": f"Tu asesor agendo una reunion: {meeting.title} para el {meeting.date} a las {meeting.time}",
+        "read": False,
+        "created_at": now.isoformat()
+    })
+    
+    return {"message": "Reunion agendada", "meeting_id": meeting_id}
+
+@api_router.get("/admin/users/{user_id}/meetings")
+async def admin_get_user_meetings(user_id: str, request: Request):
+    """Admin gets all meetings for a user"""
+    await get_admin_user(request)
+    meetings = await db.meetings.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("date", 1).to_list(100)
+    return meetings
+
+@api_router.put("/admin/meetings/{meeting_id}")
+async def admin_update_meeting(meeting_id: str, update: MeetingUpdate, request: Request):
+    """Admin updates a meeting"""
+    await get_admin_user(request)
+    
+    update_fields = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No hay campos para actualizar")
+    
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.meetings.update_one(
+        {"meeting_id": meeting_id},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Reunion no encontrada")
+    
+    # Notify user of update
+    meeting = await db.meetings.find_one({"meeting_id": meeting_id}, {"_id": 0})
+    if meeting:
+        await db.notifications.insert_one({
+            "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+            "user_id": meeting["user_id"],
+            "type": "meeting_updated",
+            "message": f"Tu reunion '{meeting.get('title', '')}' fue actualizada",
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return {"message": "Reunion actualizada"}
+
+@api_router.delete("/admin/meetings/{meeting_id}")
+async def admin_cancel_meeting(meeting_id: str, request: Request):
+    """Admin cancels a meeting"""
+    await get_admin_user(request)
+    
+    meeting = await db.meetings.find_one({"meeting_id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Reunion no encontrada")
+    
+    await db.meetings.update_one(
+        {"meeting_id": meeting_id},
+        {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Notify user
+    await db.notifications.insert_one({
+        "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
+        "user_id": meeting["user_id"],
+        "type": "meeting_cancelled",
+        "message": f"Tu reunion '{meeting.get('title', '')}' fue cancelada",
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Reunion cancelada"}
+
+@api_router.get("/meetings")
+async def get_my_meetings(request: Request):
+    """Get upcoming meetings for current user"""
+    user = await get_current_user(request)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    meetings = await db.meetings.find(
+        {"user_id": user["user_id"], "status": "scheduled", "date": {"$gte": today}},
+        {"_id": 0}
+    ).sort("date", 1).to_list(50)
+    return meetings
+
 # ============== ADVISOR MESSAGES ENDPOINTS ==============
 
 @api_router.get("/messages")

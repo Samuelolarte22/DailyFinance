@@ -31,7 +31,10 @@ import {
   Users,
   Tag,
   Sun,
-  Moon
+  Moon,
+  Clock,
+  ExternalLink,
+  Repeat
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
@@ -47,12 +50,14 @@ const Profile = () => {
   const [newCatName, setNewCatName] = useState("");
   const [newCatType, setNewCatType] = useState("expense");
   const [showAddCat, setShowAddCat] = useState(false);
+  const [upcomingMeetings, setUpcomingMeetings] = useState([]);
 
   const canManageCategories = user?.is_admin || isImpersonating;
 
   useEffect(() => {
     fetchBanks();
     fetchDocuments();
+    fetchMeetings();
     if (canManageCategories) fetchCategories();
   }, []);
 
@@ -63,6 +68,42 @@ const Profile = () => {
     } catch (error) {
       console.error("Error fetching documents:", error);
     }
+  };
+
+  const fetchMeetings = async () => {
+    try {
+      const response = await axios.get(`${API}/meetings`, { withCredentials: true });
+      setUpcomingMeetings(response.data);
+    } catch (error) {
+      console.error("Error fetching meetings:", error);
+    }
+  };
+
+  const buildGoogleCalendarUrl = (meeting) => {
+    const start = `${meeting.date.replace(/-/g, '')}T${meeting.time.replace(':', '')}00`;
+    const dur = meeting.duration_minutes || 60;
+    const [h, m] = meeting.time.split(':').map(Number);
+    const endMin = h * 60 + m + dur;
+    const endH = String(Math.floor(endMin / 60)).padStart(2, '0');
+    const endM = String(endMin % 60).padStart(2, '0');
+    const end = `${meeting.date.replace(/-/g, '')}T${endH}${endM}00`;
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: meeting.title,
+      dates: `${start}/${end}`,
+      details: meeting.description || `Reunion con asesor LD Finance`,
+    });
+    if (meeting.is_recurring && meeting.recurrence) {
+      const rrule = meeting.recurrence === 'weekly' ? 'RRULE:FREQ=WEEKLY' : 'RRULE:FREQ=MONTHLY';
+      params.set('recur', rrule);
+    }
+    return `https://calendar.google.com/calendar/event?${params.toString()}`;
+  };
+
+  const formatMeetingDate = (dateStr) => {
+    const [y, mo, d] = dateStr.split('-');
+    const date = new Date(y, mo - 1, d);
+    return date.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
   const handleUpload = async (e) => {
@@ -237,33 +278,69 @@ const Profile = () => {
       {/* Profile Card */}
       <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="profile-card">
         <CardContent className="p-8">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <Avatar className="w-24 h-24 border-2 border-[#D4AF37]">
-              <AvatarImage src={user?.picture} alt={user?.name} />
-              <AvatarFallback className="bg-[#D4AF37] text-[#141b2d] text-2xl font-bold">
-                {getInitials(user?.name)}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="text-center sm:text-left flex-1">
-              <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
-                {user?.name}
-              </h2>
-              <p className="text-gray-400">{user?.email}</p>
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            <div className="flex flex-col sm:flex-row items-center gap-6 flex-1">
+              <Avatar className="w-24 h-24 border-2 border-[#D4AF37] shrink-0">
+                <AvatarImage src={user?.picture} alt={user?.name} />
+                <AvatarFallback className="bg-[#D4AF37] text-[#141b2d] text-2xl font-bold">
+                  {getInitials(user?.name)}
+                </AvatarFallback>
+              </Avatar>
               
-              <div className="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-[#D4AF37]/10 text-[#D4AF37] text-sm font-medium border border-[#D4AF37]/30">
-                  <Shield className="w-3 h-3" />
-                  {user?.is_admin ? 'Administrador' : 'Usuario activo'}
-                </span>
-                <Button size="sm" variant="outline"
-                  className={`rounded-md text-xs ${user?.is_public ? 'border-green-500/50 text-green-400 hover:bg-green-500/10' : 'border-[#2a3444] text-gray-400 hover:bg-[#2a3444]'}`}
-                  onClick={toggleVisibility} data-testid="toggle-visibility-btn">
-                  <Users className="w-3 h-3 mr-1" />
-                  {user?.is_public ? 'Perfil publico' : 'Perfil privado'}
-                </Button>
+              <div className="text-center sm:text-left flex-1">
+                <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+                  {user?.name}
+                </h2>
+                <p className="text-gray-400">{user?.email}</p>
+                
+                <div className="flex items-center justify-center sm:justify-start gap-2 mt-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-[#D4AF37]/10 text-[#D4AF37] text-sm font-medium border border-[#D4AF37]/30">
+                    <Shield className="w-3 h-3" />
+                    {user?.is_admin ? 'Administrador' : 'Usuario activo'}
+                  </span>
+                  <Button size="sm" variant="outline"
+                    className={`rounded-md text-xs ${user?.is_public ? 'border-green-500/50 text-green-400 hover:bg-green-500/10' : 'border-[#2a3444] text-gray-400 hover:bg-[#2a3444]'}`}
+                    onClick={toggleVisibility} data-testid="toggle-visibility-btn">
+                    <Users className="w-3 h-3 mr-1" />
+                    {user?.is_public ? 'Perfil publico' : 'Perfil privado'}
+                  </Button>
+                </div>
               </div>
             </div>
+
+            {/* Next Meeting - right side */}
+            {upcomingMeetings.length > 0 && (
+              <div className="w-full sm:w-auto sm:min-w-[220px] space-y-2" data-testid="upcoming-meetings">
+                {upcomingMeetings.slice(0, 2).map(meeting => (
+                  <div key={meeting.meeting_id}
+                    className="p-3 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30"
+                    data-testid={`profile-meeting-${meeting.meeting_id}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span className="text-xs font-medium text-[#D4AF37]">Proxima reunion</span>
+                    </div>
+                    <p className="text-sm font-medium text-white truncate">{meeting.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                      <span>{formatMeetingDate(meeting.date)}</span>
+                      <span className="flex items-center gap-0.5">
+                        <Clock className="w-2.5 h-2.5" /> {meeting.time}
+                      </span>
+                      {meeting.is_recurring && (
+                        <span className="flex items-center gap-0.5 text-[#D4AF37]">
+                          <Repeat className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </div>
+                    <a href={buildGoogleCalendarUrl(meeting)} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-[10px] px-2 py-1 rounded bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors"
+                      data-testid={`gcal-link-${meeting.meeting_id}`}>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      Agregar a Google Calendar
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

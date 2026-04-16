@@ -38,7 +38,12 @@ import {
   Trash2,
   AlertTriangle,
   UserCheck,
-  ArrowLeftRight
+  ArrowLeftRight,
+  CalendarPlus,
+  Clock,
+  Repeat,
+  Edit,
+  X
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
@@ -66,6 +71,13 @@ const Admin = () => {
   const [chatMonth, setChatMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [meetings, setMeetings] = useState([]);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState(null);
+  const [meetingForm, setMeetingForm] = useState({
+    title: "", description: "", date: "", time: "10:00",
+    duration_minutes: "60", is_recurring: false, recurrence: ""
   });
   const [formData, setFormData] = useState({
     type: "expense",
@@ -171,10 +183,82 @@ const Admin = () => {
       setUserDetail(response.data);
       setSelectedUser(userId);
       fetchUserChat(userId, chatMonth);
+      fetchUserMeetings(userId);
     } catch (error) {
       console.error("Error fetching user detail:", error);
       toast.error("Error al cargar detalles del usuario");
     }
+  };
+
+  const fetchUserMeetings = async (userId) => {
+    try {
+      const response = await axios.get(`${API}/admin/users/${userId}/meetings`, { withCredentials: true });
+      setMeetings(response.data);
+    } catch (error) {
+      console.error("Error fetching meetings:", error);
+    }
+  };
+
+  const handleCreateMeeting = async () => {
+    if (!meetingForm.title || !meetingForm.date || !meetingForm.time) {
+      toast.error("Completa titulo, fecha y hora");
+      return;
+    }
+    try {
+      if (editingMeeting) {
+        await axios.put(`${API}/admin/meetings/${editingMeeting}`, {
+          title: meetingForm.title,
+          description: meetingForm.description || null,
+          date: meetingForm.date,
+          time: meetingForm.time,
+          duration_minutes: parseInt(meetingForm.duration_minutes) || 60,
+          is_recurring: meetingForm.is_recurring,
+          recurrence: meetingForm.is_recurring ? meetingForm.recurrence : null
+        }, { withCredentials: true });
+        toast.success("Reunion actualizada");
+      } else {
+        await axios.post(`${API}/admin/users/${selectedUser}/meetings`, {
+          title: meetingForm.title,
+          description: meetingForm.description || null,
+          date: meetingForm.date,
+          time: meetingForm.time,
+          duration_minutes: parseInt(meetingForm.duration_minutes) || 60,
+          is_recurring: meetingForm.is_recurring,
+          recurrence: meetingForm.is_recurring ? meetingForm.recurrence : null
+        }, { withCredentials: true });
+        toast.success("Reunion agendada");
+      }
+      setMeetingDialogOpen(false);
+      setEditingMeeting(null);
+      setMeetingForm({ title: "", description: "", date: "", time: "10:00", duration_minutes: "60", is_recurring: false, recurrence: "" });
+      fetchUserMeetings(selectedUser);
+    } catch (error) {
+      toast.error("Error al guardar reunion");
+    }
+  };
+
+  const handleCancelMeeting = async (meetingId) => {
+    try {
+      await axios.delete(`${API}/admin/meetings/${meetingId}`, { withCredentials: true });
+      toast.success("Reunion cancelada");
+      fetchUserMeetings(selectedUser);
+    } catch (error) {
+      toast.error("Error al cancelar reunion");
+    }
+  };
+
+  const openEditMeeting = (meeting) => {
+    setEditingMeeting(meeting.meeting_id);
+    setMeetingForm({
+      title: meeting.title,
+      description: meeting.description || "",
+      date: meeting.date,
+      time: meeting.time,
+      duration_minutes: String(meeting.duration_minutes || 60),
+      is_recurring: meeting.is_recurring || false,
+      recurrence: meeting.recurrence || ""
+    });
+    setMeetingDialogOpen(true);
   };
 
   const handleCreateTransaction = async (e) => {
@@ -604,6 +688,7 @@ const Admin = () => {
                   <TabsList className="mb-4">
                     <TabsTrigger value="summary">Resumen</TabsTrigger>
                     <TabsTrigger value="transactions">Transacciones</TabsTrigger>
+                    <TabsTrigger value="meetings" data-testid="admin-meetings-tab">Reuniones</TabsTrigger>
                     <TabsTrigger value="chat">Chat</TabsTrigger>
                     <TabsTrigger value="survey">Encuesta</TabsTrigger>
                   </TabsList>
@@ -737,6 +822,77 @@ const Admin = () => {
                         El usuario no ha completado la encuesta diagnóstica
                       </p>
                     )}
+                  </TabsContent>
+
+                  <TabsContent value="meetings">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-400">{meetings.filter(m => m.status === 'scheduled').length} reuniones programadas</p>
+                        <Button size="sm" className="btn-gold rounded-md" onClick={() => {
+                          setEditingMeeting(null);
+                          setMeetingForm({ title: "", description: "", date: "", time: "10:00", duration_minutes: "60", is_recurring: false, recurrence: "" });
+                          setMeetingDialogOpen(true);
+                        }} data-testid="admin-schedule-meeting-btn">
+                          <CalendarPlus className="w-4 h-4 mr-1" /> Agendar
+                        </Button>
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto space-y-2">
+                        {meetings.length > 0 ? meetings.map(meeting => (
+                          <div key={meeting.meeting_id}
+                            className={`p-4 rounded-lg border ${meeting.status === 'cancelled' ? 'bg-red-500/5 border-red-500/20 opacity-60' : 'bg-[#141b2d] border-[#2a3444]'}`}
+                            data-testid={`meeting-${meeting.meeting_id}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`font-medium text-sm ${meeting.status === 'cancelled' ? 'line-through text-gray-500' : 'text-white'}`}>
+                                    {meeting.title}
+                                  </span>
+                                  {meeting.is_recurring && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#D4AF37]/20 text-[#D4AF37] flex items-center gap-0.5">
+                                      <Repeat className="w-2.5 h-2.5" />
+                                      {meeting.recurrence === 'weekly' ? 'Semanal' : 'Mensual'}
+                                    </span>
+                                  )}
+                                  {meeting.status === 'cancelled' && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Cancelada</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                  <span className="flex items-center gap-1">
+                                    <CalendarPlus className="w-3 h-3" /> {meeting.date}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> {meeting.time} ({meeting.duration_minutes}min)
+                                  </span>
+                                </div>
+                                {meeting.description && (
+                                  <p className="text-xs text-gray-500 mt-1">{meeting.description}</p>
+                                )}
+                              </div>
+                              {meeting.status === 'scheduled' && (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button onClick={() => openEditMeeting(meeting)}
+                                    className="p-1.5 rounded hover:bg-[#2a3444] text-gray-500 hover:text-[#D4AF37] transition-colors"
+                                    data-testid={`edit-meeting-${meeting.meeting_id}`}>
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => handleCancelMeeting(meeting.meeting_id)}
+                                    className="p-1.5 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+                                    data-testid={`cancel-meeting-${meeting.meeting_id}`}>
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="py-8 text-center text-gray-500">
+                            <CalendarPlus className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm">No hay reuniones agendadas</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="chat">
@@ -938,6 +1094,85 @@ const Admin = () => {
                 Eliminar usuario
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Meeting Dialog */}
+      <Dialog open={meetingDialogOpen} onOpenChange={(open) => {
+        setMeetingDialogOpen(open);
+        if (!open) { setEditingMeeting(null); }
+      }}>
+        <DialogContent className="sm:max-w-md bg-[#1a2332] border-[#2a3444]">
+          <DialogHeader>
+            <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+              {editingMeeting ? "Editar Reunion" : "Agendar Reunion"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-gray-300">Titulo</Label>
+              <Input placeholder="Ej: Asesoria financiera mensual" className="bg-[#141b2d] border-[#2a3444] text-white"
+                value={meetingForm.title} onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })}
+                data-testid="meeting-title-input" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300">Descripcion (opcional)</Label>
+              <Input placeholder="Notas sobre la reunion..." className="bg-[#141b2d] border-[#2a3444] text-white"
+                value={meetingForm.description} onChange={(e) => setMeetingForm({ ...meetingForm, description: e.target.value })}
+                data-testid="meeting-desc-input" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-gray-300">Fecha</Label>
+                <Input type="date" className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={meetingForm.date} onChange={(e) => setMeetingForm({ ...meetingForm, date: e.target.value })}
+                  data-testid="meeting-date-input" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">Hora</Label>
+                <Input type="time" className="bg-[#141b2d] border-[#2a3444] text-white"
+                  value={meetingForm.time} onChange={(e) => setMeetingForm({ ...meetingForm, time: e.target.value })}
+                  data-testid="meeting-time-input" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-300">Duracion (minutos)</Label>
+              <Select value={meetingForm.duration_minutes} onValueChange={(v) => setMeetingForm({ ...meetingForm, duration_minutes: v })}>
+                <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white" data-testid="meeting-duration-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="60">1 hora</SelectItem>
+                  <SelectItem value="90">1.5 horas</SelectItem>
+                  <SelectItem value="120">2 horas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 p-3 rounded-lg border border-[#2a3444]">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={meetingForm.is_recurring}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, is_recurring: e.target.checked })}
+                  className="rounded border-[#2a3444]" id="recurring-check" data-testid="meeting-recurring-check" />
+                <Label htmlFor="recurring-check" className="text-gray-300 text-sm cursor-pointer flex items-center gap-1">
+                  <Repeat className="w-3 h-3" /> Reunion recurrente
+                </Label>
+              </div>
+              {meetingForm.is_recurring && (
+                <Select value={meetingForm.recurrence || "weekly"} onValueChange={(v) => setMeetingForm({ ...meetingForm, recurrence: v })}>
+                  <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white h-8 text-xs" data-testid="meeting-recurrence-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="monthly">Mensual</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <Button className="w-full btn-gold rounded-md" onClick={handleCreateMeeting} data-testid="save-meeting-btn">
+              {editingMeeting ? "Actualizar Reunion" : "Agendar Reunion"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
