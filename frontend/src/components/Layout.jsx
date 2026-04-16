@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../App";
+import { useAuth, useTheme } from "../App";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -30,6 +30,7 @@ import FloatingTransaction from "./FloatingTransaction";
 
 const Layout = ({ children }) => {
   const { user, logout, isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
+  const { theme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -97,7 +98,9 @@ const Layout = ({ children }) => {
         </div>
       )}
       {/* Navigation Header */}
-      <header className="sticky top-0 z-50 bg-[#141b2d]/90 backdrop-blur-md border-b border-[#2a3444]">
+      <header className={`sticky top-0 z-50 backdrop-blur-md border-b ${
+        theme === 'light' ? 'bg-white/90 border-gray-200' : 'bg-[#141b2d]/90 border-[#2a3444]'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -115,7 +118,9 @@ const Layout = ({ children }) => {
                     className={`rounded-md transition-all ${
                       isActive(item.href) 
                         ? "bg-[#D4AF37]/10 text-[#D4AF37]" 
-                        : "text-gray-400 hover:text-white hover:bg-[#1a2332]"
+                        : theme === 'light'
+                          ? "text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10"
+                          : "text-gray-400 hover:text-white hover:bg-[#1a2332]"
                     }`}
                   >
                     <item.icon className="w-4 h-4 mr-2" />
@@ -130,7 +135,7 @@ const Layout = ({ children }) => {
               {/* User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-[#2a3444]">
+                  <Button variant="ghost" className={`relative h-9 w-9 rounded-full border ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3444]'}`}>
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user?.picture} alt={user?.name} />
                       <AvatarFallback className="bg-[#D4AF37] text-[#141b2d] text-xs font-semibold">
@@ -139,7 +144,7 @@ const Layout = ({ children }) => {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-[#1a2332] border-[#2a3444]" align="end">
+                <DropdownMenuContent className={`w-56 ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#1a2332] border-[#2a3444]'}`} align="end">
                   <div className="flex items-center gap-2 p-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user?.picture} alt={user?.name} />
@@ -148,24 +153,24 @@ const Layout = ({ children }) => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <p className="text-sm font-medium text-white">{user?.name}</p>
+                      <p className={`text-sm font-medium ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>{user?.name}</p>
                       <p className="text-xs text-gray-400 truncate">{user?.email}</p>
                     </div>
                   </div>
-                  <DropdownMenuSeparator className="bg-[#2a3444]" />
-                  <DropdownMenuItem asChild className="text-gray-300 focus:text-white focus:bg-[#2a3444]">
+                  <DropdownMenuSeparator className={theme === 'light' ? 'bg-gray-200' : 'bg-[#2a3444]'} />
+                  <DropdownMenuItem asChild className={theme === 'light' ? 'text-gray-700 focus:text-[#D4AF37] focus:bg-[#D4AF37]/10' : 'text-gray-300 focus:text-white focus:bg-[#2a3444]'}>
                     <Link to="/profile" className="cursor-pointer">
                       <User className="w-4 h-4 mr-2" />
                       Mi Perfil
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-[#2a3444]" />
+                  <DropdownMenuSeparator className={theme === 'light' ? 'bg-gray-200' : 'bg-[#2a3444]'} />
                   <DropdownMenuItem 
-                    className="text-red-400 focus:text-red-300 focus:bg-[#2a3444] cursor-pointer"
+                    className={theme === 'light' ? 'text-red-500 focus:text-red-600 focus:bg-red-50 cursor-pointer' : 'text-red-400 focus:text-red-300 focus:bg-[#2a3444] cursor-pointer'}
                     onClick={handleLogout}
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    Cerrar sesión
+                    Cerrar sesion
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -173,11 +178,11 @@ const Layout = ({ children }) => {
               {/* Mobile Menu Toggle */}
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild className="md:hidden">
-                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                  <Button variant="ghost" size="icon" className={theme === 'light' ? 'text-gray-600 hover:text-[#D4AF37]' : 'text-gray-400 hover:text-white'}>
                     <Menu className="w-5 h-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72 bg-[#1a2332] border-[#2a3444]">
+                <SheetContent side="right" className={`w-72 ${theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#1a2332] border-[#2a3444]'}`}>
                   <div className="flex flex-col gap-2 mt-8">
                     {navigation.map((item) => (
                       <Link 
@@ -190,7 +195,9 @@ const Layout = ({ children }) => {
                           className={`w-full justify-start rounded-md ${
                             isActive(item.href) 
                               ? "bg-[#D4AF37]/10 text-[#D4AF37]" 
-                              : "text-gray-400 hover:text-white hover:bg-[#2a3444]"
+                              : theme === 'light'
+                                ? "text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10"
+                                : "text-gray-400 hover:text-white hover:bg-[#2a3444]"
                           }`}
                         >
                           <item.icon className="w-5 h-5 mr-3" />
@@ -198,16 +205,20 @@ const Layout = ({ children }) => {
                         </Button>
                       </Link>
                     ))}
-                    <div className="border-t border-[#2a3444] my-4" />
+                    <div className={`border-t my-4 ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3444]'}`} />
                     <Link to="/profile" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start rounded-md text-gray-400 hover:text-white hover:bg-[#2a3444]">
+                      <Button variant="ghost" className={`w-full justify-start rounded-md ${
+                        theme === 'light' ? 'text-gray-600 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10' : 'text-gray-400 hover:text-white hover:bg-[#2a3444]'
+                      }`}>
                         <User className="w-5 h-5 mr-3" />
                         Mi Perfil
                       </Button>
                     </Link>
                     <Button 
                       variant="ghost" 
-                      className="w-full justify-start rounded-md text-red-400 hover:text-red-300 hover:bg-[#2a3444]"
+                      className={`w-full justify-start rounded-md ${
+                        theme === 'light' ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : 'text-red-400 hover:text-red-300 hover:bg-[#2a3444]'
+                      }`}
                       onClick={handleLogout}
                     >
                       <LogOut className="w-5 h-5 mr-3" />
@@ -227,7 +238,7 @@ const Layout = ({ children }) => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#2a3444] mt-12">
+      <footer className={`border-t mt-12 ${theme === 'light' ? 'border-gray-200' : 'border-[#2a3444]'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <AnimatedLogo size="small" />
