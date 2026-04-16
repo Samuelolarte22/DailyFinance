@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth, API } from "../App";
+import { useAuth, useTheme, API } from "../App";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -29,12 +29,15 @@ import {
   Upload,
   Download,
   Users,
-  Tag
+  Tag,
+  Sun,
+  Moon
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const Profile = () => {
   const { user, logout, isImpersonating } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [banks, setBanks] = useState([]);
   const [newBankName, setNewBankName] = useState("");
   const [showAddBank, setShowAddBank] = useState(false);
@@ -535,6 +538,30 @@ const Profile = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Theme Toggle */}
+      <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="theme-toggle-card">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? <Moon className="w-5 h-5 text-[#D4AF37]" /> : <Sun className="w-5 h-5 text-amber-500" />}
+              <div>
+                <h3 className="font-medium text-white">Apariencia</h3>
+                <p className="text-sm text-gray-500">{theme === 'dark' ? 'Modo oscuro' : 'Modo claro'}</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-full border-[#2a3444] hover:bg-[#2a3444]"
+              onClick={toggleTheme}
+              data-testid="theme-toggle-btn"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
+              <span className="ml-2 text-sm">{theme === 'dark' ? 'Modo dia' : 'Modo noche'}</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Logout */}
       <Card className="bg-[#1a2332] border-red-500/30">

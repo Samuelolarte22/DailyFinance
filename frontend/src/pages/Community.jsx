@@ -144,7 +144,7 @@ const Community = () => {
         <p className="text-gray-400 mt-1">Conecta con otros usuarios y comparte gastos</p>
       </div>
 
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="users" onValueChange={(tab) => { if (tab === "notifications" && unreadCount > 0) markRead(); }}>
         <TabsList className="bg-[#1a2332] border border-[#2a3444]">
           <TabsTrigger value="users" className="data-[state=active]:bg-[#D4AF37] data-[state=active]:text-[#141b2d]">
             <Users className="w-4 h-4 mr-1" /> Usuarios

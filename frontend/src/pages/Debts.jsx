@@ -311,7 +311,9 @@ const Debts = () => {
                               ))}
                             </Pie>
                             <Tooltip formatter={(value) => formatCurrency(value)}
-                              contentStyle={{ backgroundColor: '#1a2332', border: '1px solid #2a3444', borderRadius: '8px', color: '#fff' }} />
+                              contentStyle={{ backgroundColor: '#1a2332', border: '1px solid #2a3444', borderRadius: '8px', color: '#fff' }}
+                              labelStyle={{ color: '#fff' }}
+                              itemStyle={{ color: '#fff' }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>

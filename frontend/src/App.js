@@ -26,11 +26,20 @@ export const API = `${BACKEND_URL}/api`;
 import { createContext, useContext } from "react";
 
 const AuthContext = createContext(null);
+const ThemeContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
+};
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider");
   }
   return context;
 };
@@ -262,12 +271,28 @@ function AppRouter() {
 }
 
 function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('ld-theme') || 'dark');
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('ld-theme', next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
   return (
     <div className="App">
       <BrowserRouter>
-        <AuthProvider>
-          <AppRouter />
-        </AuthProvider>
+        <ThemeContext.Provider value={{ theme, toggleTheme }}>
+          <AuthProvider>
+            <AppRouter />
+          </AuthProvider>
+        </ThemeContext.Provider>
       </BrowserRouter>
     </div>
   );
