@@ -71,6 +71,7 @@
 - categories, advisor_messages, budgets, banks, documents
 - connections, notifications, shared_transactions
 - pockets (pocket_id, user_id, name, balance, created_at)
+- **meetings** (meeting_id, user_id, admin_id, title, description, date, time, duration_minutes, is_recurring, recurrence, status)
 
 ## Key API Endpoints
 - Auth: /api/auth/session, /api/auth/me, /api/auth/logout
@@ -81,7 +82,8 @@
 - Dashboard: /api/dashboard — includes pockets, debts, savings_goals, all_transactions
 - Categories: /api/categories (GET/POST/DELETE) — personal per user
 - Admin: /api/admin/impersonate/{user_id}, /api/admin/stop-impersonation
-- **NEW:** /api/reports/timeline?period=week|month|year — Historical debt vs savings time series
+- Reports Timeline: /api/reports/timeline?period=week|month|year — Historical debt vs savings
+- **Meetings:** /api/admin/users/{id}/meetings (GET/POST), /api/admin/meetings/{id} (PUT/DELETE), /api/meetings (GET user's upcoming)
 
 ## Configuration
 - Admin email: samuelolarte22@gmail.com
@@ -89,11 +91,14 @@
 - Language: Spanish
 
 ## Backlog
-- [ ] Agendamiento de Asesorias (Admin agenda reuniones, usuario las ve en Perfil)
 - [ ] Refactoring: Split server.py into routers and models
 - [ ] Export reports as PDF
 - [ ] Recurring transactions
 - [ ] Gamification social (ranking entre amigos)
+- [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
+- [ ] Resumen semanal por email
+- [ ] PWA / App nativa
+amification social (ranking entre amigos)
 - [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
 - [ ] Resumen semanal por email
 - [ ] PWA / App nativa
