@@ -41,6 +41,7 @@
 37. **Edit Savings/Debts Amount** — Click to edit current_amount without deleting/recreating
 38. **Google Calendar Admin Attendee** — Calendar link includes admin email
 39. **Payment Reminders/Subscriptions** — In Profile: name, amount, recurrence, due day, "due soon" alerts
+40. **Voice Transaction Input** — Microphone button in FloatingTransaction dialog. Records audio → Whisper STT → GPT-4.1-mini extracts type/category/amount/description/date → auto-fills form. Spanish language.
 
 ## DB Collections
 - users, transactions, debts, savings_goals, surveys, user_sessions
@@ -67,7 +68,6 @@
 - Language: Spanish
 
 ## Backlog
-- [ ] Audio transaction input (Speech-to-Text with Whisper + LLM extraction)
 - [ ] Refactoring: Split server.py into routers
 - [ ] Export reports as PDF
 - [ ] Recurring transactions
