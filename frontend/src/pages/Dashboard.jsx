@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth, API } from "../App";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -26,6 +26,8 @@ const Dashboard = () => {
   const [incomeBudgetComparison, setIncomeBudgetComparison] = useState([]);
   const [editingBudget, setEditingBudget] = useState(null);
   const [editAmount, setEditAmount] = useState("");
+  const [editComment, setEditComment] = useState("");
+  const [editCommentRecurring, setEditCommentRecurring] = useState(false);
   const [annualOverview, setAnnualOverview] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -427,50 +429,72 @@ const Dashboard = () => {
                   <tbody>
                     {budgetComparison.map((item) => {
                       const isOver = item.projected > 0 ? item.actual > item.projected : item.actual > 0;
+                      const isEditing = editingBudget === `expense-${item.category}`;
                       return (
-                        <tr key={item.category} className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`budget-row-${item.category}`}>
-                          <td className="py-2.5 pr-2 text-white font-medium relative">
-                            {item.category}
-                            {item.comment && (
-                              <span className="ml-1 inline-block w-2 h-2 rounded-full bg-[#D4AF37]/60 cursor-help group/comment relative" title={item.comment}>
-                                <span className="absolute bottom-full left-0 mb-1 hidden group-hover/comment:block bg-[#1a2332] border border-[#D4AF37]/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
-                                  {item.comment}
-                                  {item.comment_recurring && <span className="block text-[9px] text-[#D4AF37] mt-1">Recurrente</span>}
+                        <React.Fragment key={item.category}>
+                          <tr className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`budget-row-${item.category}`}>
+                            <td className="py-2.5 pr-2 text-white font-medium relative">
+                              {item.category}
+                              {item.comment && !isEditing && (
+                                <span className="ml-1.5 relative inline-flex" title={item.comment}>
+                                  <span className="w-2 h-2 rounded-full bg-[#D4AF37]/60 inline-block cursor-help peer" />
+                                  <span className="absolute bottom-full left-0 mb-1.5 hidden peer-hover:block bg-[#1a2332] border border-[#D4AF37]/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
+                                    {item.comment}
+                                    {item.comment_recurring && <span className="block text-[9px] text-[#D4AF37] mt-1">Recurrente</span>}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            {editingBudget === `expense-${item.category}` ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <CurrencyInput value={editAmount} onChange={setEditAmount}
-                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
-                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount); }} />
-                                <button onClick={() => handleSaveBudget(item.category, editAmount)} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
-                              </div>
-                            ) : (
-                              <span className="font-mono text-gray-400 cursor-pointer hover:text-[#D4AF37] transition-colors"
-                                onClick={() => { setEditingBudget(`expense-${item.category}`); setEditAmount(String(item.projected)); }}>
-                                {item.projected > 0 ? formatCurrency(item.projected) : <span className="text-gray-600 italic text-xs">Definir</span>}
-                              </span>
-                            )}
-                          </td>
-                          <td className={`py-2.5 px-2 text-right font-mono font-medium ${isOver ? 'text-red-400' : 'text-green-400'}`}>
-                            {item.actual > 0 ? formatCurrency(item.actual) : <span className="text-gray-600">—</span>}
-                          </td>
-                          <td className="py-2.5 pl-2 text-right">
-                            {item.projected > 0 ? (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
-                                {isOver ? `-${formatCurrency(Math.abs(item.difference))}` : `+${formatCurrency(item.difference)}`}
-                              </span>
-                            ) : item.actual > 0 ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Sin tope</span>
-                            ) : (
-                              <span className="text-gray-600 text-xs">—</span>
-                            )}
-                          </td>
-                        </tr>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              {isEditing ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <CurrencyInput value={editAmount} onChange={setEditAmount}
+                                    className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "expense", editComment, editCommentRecurring); }} />
+                                  <button onClick={() => handleSaveBudget(item.category, editAmount, "expense", editComment, editCommentRecurring)} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-gray-400 cursor-pointer hover:text-[#D4AF37] transition-colors"
+                                  onClick={() => { setEditingBudget(`expense-${item.category}`); setEditAmount(String(item.projected)); setEditComment(item.comment || ""); setEditCommentRecurring(item.comment_recurring || false); }}>
+                                  {item.projected > 0 ? formatCurrency(item.projected) : <span className="text-gray-600 italic text-xs">Definir</span>}
+                                </span>
+                              )}
+                            </td>
+                            <td className={`py-2.5 px-2 text-right font-mono font-medium ${isOver ? 'text-red-400' : 'text-green-400'}`}>
+                              {item.actual > 0 ? formatCurrency(item.actual) : <span className="text-gray-600">—</span>}
+                            </td>
+                            <td className="py-2.5 pl-2 text-right">
+                              {item.projected > 0 ? (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                                  {isOver ? `-${formatCurrency(Math.abs(item.difference))}` : `+${formatCurrency(item.difference)}`}
+                                </span>
+                              ) : item.actual > 0 ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Sin tope</span>
+                              ) : (
+                                <span className="text-gray-600 text-xs">—</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isEditing && (
+                            <tr className="border-b border-[#D4AF37]/20 bg-[#D4AF37]/5">
+                              <td colSpan="4" className="py-2 px-3">
+                                <div className="flex items-center gap-2">
+                                  <input type="text" placeholder="Comentario (ej: incluye servicios)..."
+                                    className="flex-1 bg-[#141b2d] border border-[#2a3444] text-white text-xs rounded px-2 py-1 placeholder-gray-600"
+                                    value={editComment} onChange={(e) => setEditComment(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "expense", editComment, editCommentRecurring); }}
+                                    data-testid={`budget-comment-input-${item.category}`} />
+                                  <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer whitespace-nowrap">
+                                    <input type="checkbox" checked={editCommentRecurring} onChange={(e) => setEditCommentRecurring(e.target.checked)}
+                                      className="w-3 h-3 rounded border-[#2a3444]" data-testid={`budget-comment-recurring-${item.category}`} />
+                                    Recurrente
+                                  </label>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                     {budgetComparison.length === 0 && (
@@ -506,35 +530,38 @@ const Dashboard = () => {
                   <tbody>
                     {incomeBudgetComparison.map((item) => {
                       const isUnder = item.projected > 0 ? item.actual < item.projected : false;
+                      const isEditing = editingBudget === `income-${item.category}`;
                       return (
-                        <tr key={item.category} className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`income-row-${item.category}`}>
-                          <td className="py-2.5 pr-2 text-white font-medium">
-                            {item.category}
-                            {item.comment && (
-                              <span className="ml-1 inline-block w-2 h-2 rounded-full bg-green-400/60 cursor-help group/comment relative" title={item.comment}>
-                                <span className="absolute bottom-full left-0 mb-1 hidden group-hover/comment:block bg-[#1a2332] border border-green-500/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
-                                  {item.comment}
-                                  {item.comment_recurring && <span className="block text-[9px] text-green-400 mt-1">Recurrente</span>}
+                        <React.Fragment key={item.category}>
+                          <tr className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`income-row-${item.category}`}>
+                            <td className="py-2.5 pr-2 text-white font-medium">
+                              {item.category}
+                              {item.comment && !isEditing && (
+                                <span className="ml-1.5 relative inline-flex" title={item.comment}>
+                                  <span className="w-2 h-2 rounded-full bg-green-400/60 inline-block cursor-help peer" />
+                                  <span className="absolute bottom-full left-0 mb-1.5 hidden peer-hover:block bg-[#1a2332] border border-green-500/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
+                                    {item.comment}
+                                    {item.comment_recurring && <span className="block text-[9px] text-green-400 mt-1">Recurrente</span>}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            {editingBudget === `income-${item.category}` ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <CurrencyInput value={editAmount} onChange={setEditAmount}
-                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
-                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "income"); }} />
-                                <button onClick={() => handleSaveBudget(item.category, editAmount, "income")} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
-                              </div>
-                            ) : (
-                              <span className="font-mono text-gray-400 cursor-pointer hover:text-green-400 transition-colors"
-                                onClick={() => { setEditingBudget(`income-${item.category}`); setEditAmount(String(item.projected)); }}>
-                                {item.projected > 0 ? formatCurrency(item.projected) : <span className="text-gray-600 italic text-xs">Definir</span>}
-                              </span>
-                            )}
-                          </td>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              {isEditing ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <CurrencyInput value={editAmount} onChange={setEditAmount}
+                                    className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "income", editComment, editCommentRecurring); }} />
+                                  <button onClick={() => handleSaveBudget(item.category, editAmount, "income", editComment, editCommentRecurring)} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
+                                </div>
+                              ) : (
+                                <span className="font-mono text-gray-400 cursor-pointer hover:text-green-400 transition-colors"
+                                  onClick={() => { setEditingBudget(`income-${item.category}`); setEditAmount(String(item.projected)); setEditComment(item.comment || ""); setEditCommentRecurring(item.comment_recurring || false); }}>
+                                  {item.projected > 0 ? formatCurrency(item.projected) : <span className="text-gray-600 italic text-xs">Definir</span>}
+                                </span>
+                              )}
+                            </td>
                           <td className={`py-2.5 px-2 text-right font-mono font-medium ${isUnder ? 'text-red-400' : 'text-green-400'}`}>
                             {item.actual > 0 ? formatCurrency(item.actual) : <span className="text-gray-600">—</span>}
                           </td>
@@ -550,6 +577,25 @@ const Dashboard = () => {
                             )}
                           </td>
                         </tr>
+                          {isEditing && (
+                            <tr className="border-b border-green-500/20 bg-green-500/5">
+                              <td colSpan="4" className="py-2 px-3">
+                                <div className="flex items-center gap-2">
+                                  <input type="text" placeholder="Comentario..."
+                                    className="flex-1 bg-[#141b2d] border border-[#2a3444] text-white text-xs rounded px-2 py-1 placeholder-gray-600"
+                                    value={editComment} onChange={(e) => setEditComment(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "income", editComment, editCommentRecurring); }}
+                                    data-testid={`income-comment-input-${item.category}`} />
+                                  <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer whitespace-nowrap">
+                                    <input type="checkbox" checked={editCommentRecurring} onChange={(e) => setEditCommentRecurring(e.target.checked)}
+                                      className="w-3 h-3 rounded border-[#2a3444]" />
+                                    Recurrente
+                                  </label>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                     {incomeBudgetComparison.length === 0 && (
