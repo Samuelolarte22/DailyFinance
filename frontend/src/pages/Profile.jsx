@@ -51,6 +51,9 @@ const Profile = () => {
   const [newCatType, setNewCatType] = useState("expense");
   const [showAddCat, setShowAddCat] = useState(false);
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [reminderForm, setReminderForm] = useState({ name: "", amount: "", recurrence: "monthly", due_day: "1", description: "" });
 
   const canManageCategories = user?.is_admin || isImpersonating;
 
@@ -58,6 +61,7 @@ const Profile = () => {
     fetchBanks();
     fetchDocuments();
     fetchMeetings();
+    fetchReminders();
     if (canManageCategories) fetchCategories();
   }, []);
 
@@ -77,6 +81,49 @@ const Profile = () => {
     } catch (error) {
       console.error("Error fetching meetings:", error);
     }
+  };
+
+  const fetchReminders = async () => {
+    try {
+      const response = await axios.get(`${API}/reminders`, { withCredentials: true });
+      setReminders(response.data);
+    } catch (error) {
+      console.error("Error fetching reminders:", error);
+    }
+  };
+
+  const handleAddReminder = async () => {
+    if (!reminderForm.name.trim()) { toast.error("Ingresa un nombre"); return; }
+    try {
+      await axios.post(`${API}/reminders`, {
+        name: reminderForm.name,
+        amount: reminderForm.amount ? parseFloat(reminderForm.amount.replace(/\./g, '')) : null,
+        recurrence: reminderForm.recurrence,
+        due_day: parseInt(reminderForm.due_day),
+        description: reminderForm.description || null
+      }, { withCredentials: true });
+      toast.success("Recordatorio creado");
+      setReminderForm({ name: "", amount: "", recurrence: "monthly", due_day: "1", description: "" });
+      setShowAddReminder(false);
+      fetchReminders();
+    } catch (error) {
+      toast.error("Error al crear recordatorio");
+    }
+  };
+
+  const handleDeleteReminder = async (reminderId) => {
+    try {
+      await axios.delete(`${API}/reminders/${reminderId}`, { withCredentials: true });
+      toast.success("Recordatorio eliminado");
+      fetchReminders();
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  };
+
+  const getRecurrenceLabel = (r) => {
+    const m = { monthly: "Mensual", weekly: "Semanal", biweekly: "Quincenal", yearly: "Anual" };
+    return m[r] || r;
   };
 
   const buildGoogleCalendarUrl = (meeting) => {
@@ -457,6 +504,94 @@ const Profile = () => {
             </div>
           ) : (
             <p className="text-sm text-gray-500">No tienes bancos registrados. Agrega los bancos que usas para tus transacciones.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reminders / Subscriptions */}
+      <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="reminders-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <Clock className="w-5 h-5 text-[#D4AF37]" />
+            Recordatorios de Pagos
+          </CardTitle>
+          <Button size="sm" variant="outline" className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
+            onClick={() => setShowAddReminder(!showAddReminder)} data-testid="add-reminder-btn">
+            <Plus className="w-4 h-4 mr-1" /> Agregar
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {showAddReminder && (
+            <div className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/20 space-y-2">
+              <Input placeholder="Nombre (ej: Netflix, Arriendo)" className="bg-[#141b2d] border-[#2a3444] text-white"
+                value={reminderForm.name} onChange={(e) => setReminderForm({ ...reminderForm, name: e.target.value })}
+                data-testid="reminder-name-input" />
+              <div className="grid grid-cols-3 gap-2">
+                <Input placeholder="Monto (opcional)" className="bg-[#141b2d] border-[#2a3444] text-white text-sm"
+                  value={reminderForm.amount} onChange={(e) => setReminderForm({ ...reminderForm, amount: e.target.value })}
+                  data-testid="reminder-amount-input" />
+                <Select value={reminderForm.recurrence} onValueChange={(v) => setReminderForm({ ...reminderForm, recurrence: v })}>
+                  <SelectTrigger className="bg-[#141b2d] border-[#2a3444] text-white text-sm" data-testid="reminder-recurrence">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a2332] border-[#2a3444]">
+                    <SelectItem value="monthly">Mensual</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="biweekly">Quincenal</SelectItem>
+                    <SelectItem value="yearly">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="number" min="1" max="31" placeholder="Dia del mes" className="bg-[#141b2d] border-[#2a3444] text-white text-sm"
+                  value={reminderForm.due_day} onChange={(e) => setReminderForm({ ...reminderForm, due_day: e.target.value })}
+                  data-testid="reminder-due-day-input" />
+              </div>
+              <Input placeholder="Descripcion (opcional)" className="bg-[#141b2d] border-[#2a3444] text-white text-sm"
+                value={reminderForm.description} onChange={(e) => setReminderForm({ ...reminderForm, description: e.target.value })} />
+              <div className="flex gap-2">
+                <Button size="sm" className="btn-gold flex-1" onClick={handleAddReminder} data-testid="save-reminder-btn">Guardar</Button>
+                <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => setShowAddReminder(false)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          {reminders.length > 0 ? (
+            <div className="space-y-2">
+              {reminders.map(r => (
+                <div key={r.reminder_id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border group ${r.is_due_soon ? 'bg-amber-500/10 border-amber-500/30' : 'bg-[#141b2d] border-[#2a3444]'}`}
+                  data-testid={`reminder-${r.reminder_id}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${r.is_due_soon ? 'bg-amber-500/20' : 'bg-[#D4AF37]/10'}`}>
+                    <Calendar className={`w-4 h-4 ${r.is_due_soon ? 'text-amber-400' : 'text-[#D4AF37]'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white truncate">{r.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#2a3444] text-gray-400">{getRecurrenceLabel(r.recurrence)}</span>
+                      {r.is_due_soon && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">Pronto</span>}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Dia {r.due_day} de cada mes
+                      {r.description && ` - ${r.description}`}
+                    </p>
+                  </div>
+                  {r.amount && (
+                    <span className="font-mono text-sm text-[#D4AF37] shrink-0">
+                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(r.amount)}
+                    </span>
+                  )}
+                  <button onClick={() => handleDeleteReminder(r.reminder_id)}
+                    className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    data-testid={`delete-reminder-${r.reminder_id}`}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-4 text-center">
+              <Clock className="w-8 h-8 mx-auto mb-2 opacity-30 text-gray-600" />
+              <p className="text-sm text-gray-600">Sin recordatorios activos</p>
+              <p className="text-xs text-gray-700 mt-1">Agrega tus recibos y suscripciones para no olvidarlos</p>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -2527,6 +2527,92 @@ async def get_my_meetings(request: Request):
     ).sort("date", 1).to_list(50)
     return meetings
 
+# ============== REMINDER/SUBSCRIPTION MODELS ==============
+
+class ReminderCreate(BaseModel):
+    name: str
+    amount: Optional[float] = None
+    recurrence: str  # "monthly", "weekly", "biweekly", "yearly"
+    due_day: int  # Day of month (1-31)
+    description: Optional[str] = None
+
+class ReminderUpdate(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    recurrence: Optional[str] = None
+    due_day: Optional[int] = None
+    description: Optional[str] = None
+
+# ============== REMINDER ENDPOINTS ==============
+
+@api_router.get("/reminders")
+async def get_reminders(request: Request):
+    """Get all reminders for current user"""
+    user = await get_current_user(request)
+    reminders = await db.reminders.find(
+        {"user_id": user["user_id"]}, {"_id": 0}
+    ).sort("due_day", 1).to_list(100)
+    
+    # Check which are due soon (within 3 days)
+    today = datetime.now(timezone.utc)
+    for r in reminders:
+        due_day = r.get("due_day", 1)
+        days_until = due_day - today.day
+        if days_until < 0:
+            days_until += 30  # approximate
+        r["days_until_due"] = days_until
+        r["is_due_soon"] = days_until <= 3
+    
+    return reminders
+
+@api_router.post("/reminders")
+async def create_reminder(reminder: ReminderCreate, request: Request):
+    """Create a new reminder"""
+    user = await get_current_user(request)
+    
+    reminder_id = f"rem_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "reminder_id": reminder_id,
+        "user_id": user["user_id"],
+        "name": reminder.name,
+        "amount": reminder.amount,
+        "recurrence": reminder.recurrence,
+        "due_day": reminder.due_day,
+        "description": reminder.description,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.reminders.insert_one(doc)
+    return {"message": "Recordatorio creado", "reminder_id": reminder_id}
+
+@api_router.put("/reminders/{reminder_id}")
+async def update_reminder(reminder_id: str, update: ReminderUpdate, request: Request):
+    """Update a reminder"""
+    user = await get_current_user(request)
+    
+    update_fields = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    result = await db.reminders.update_one(
+        {"reminder_id": reminder_id, "user_id": user["user_id"]},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recordatorio no encontrado")
+    return {"message": "Recordatorio actualizado"}
+
+@api_router.delete("/reminders/{reminder_id}")
+async def delete_reminder(reminder_id: str, request: Request):
+    """Delete a reminder"""
+    user = await get_current_user(request)
+    result = await db.reminders.delete_one(
+        {"reminder_id": reminder_id, "user_id": user["user_id"]}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Recordatorio no encontrado")
+    return {"message": "Recordatorio eliminado"}
+
 # ============== ADVISOR MESSAGES ENDPOINTS ==============
 
 @api_router.get("/messages")

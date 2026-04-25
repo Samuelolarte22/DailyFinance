@@ -37,6 +37,8 @@ const Debts = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [editDebtId, setEditDebtId] = useState(null);
+  const [editDebtAmount, setEditDebtAmount] = useState("");
   const [snowball, setSnowball] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [formData, setFormData] = useState({
@@ -140,6 +142,19 @@ const Debts = () => {
       fetchSnowball();
     } catch (error) {
       toast.error("Error al eliminar deuda");
+    }
+  };
+
+  const handleEditDebtAmount = async (debtId) => {
+    if (!editDebtAmount) return;
+    try {
+      await axios.put(`${API}/debts/${debtId}/edit`, { current_amount: parseInt(editDebtAmount) }, { withCredentials: true });
+      toast.success("Monto actualizado");
+      setEditDebtId(null);
+      setEditDebtAmount("");
+      fetchDebts();
+    } catch (error) {
+      toast.error("Error al actualizar");
     }
   };
 
@@ -513,7 +528,22 @@ const Debts = () => {
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Pagado: {formatCurrency(debt.total_amount - debt.current_amount)}</span>
-                        <span className="font-mono font-semibold text-purple-400">Pendiente: {formatCurrency(debt.current_amount)}</span>
+                        {editDebtId === debt.debt_id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500 text-xs">Pendiente:</span>
+                            <CurrencyInput value={editDebtAmount} onChange={setEditDebtAmount}
+                              className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleEditDebtAmount(debt.debt_id); if (e.key === 'Escape') setEditDebtId(null); }} />
+                            <button onClick={() => handleEditDebtAmount(debt.debt_id)} className="text-green-400 text-xs">OK</button>
+                            <button onClick={() => setEditDebtId(null)} className="text-gray-500 text-xs">X</button>
+                          </div>
+                        ) : (
+                          <span className="font-mono font-semibold text-purple-400 cursor-pointer hover:underline"
+                            onClick={() => { setEditDebtId(debt.debt_id); setEditDebtAmount(String(debt.current_amount)); }}
+                            title="Click para editar" data-testid={`edit-debt-${debt.debt_id}`}>
+                            Pendiente: {formatCurrency(debt.current_amount)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardContent>

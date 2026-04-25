@@ -14,76 +14,52 @@
 
 ## Implemented Features
 
-### Phase 1 - MVP
-- Google OAuth authentication
-- 4-step diagnostic survey (with formatted CurrencyInput)
-- Income/expense CRUD with monthly view
-- Debt management with progress bars + Snowball method
-- Savings goals with contributions
-- Before/after financial reports
-- Dashboard with monthly navigation
-- Admin panel (view users, add transactions, toggle admin, delete users)
-- LD Finance dark theme branding (#141b2d, #D4AF37, #FFF)
-
-### Phase 2 - Features
-- Animated Logo (LD -> Holdings -> Finance sequence)
-- Custom Categories per user (personal, not global)
-- Advisor Chat (monthly messages/tasks on Dashboard)
-- Budget Comparison (Proyectado vs Real for expenses)
-- Simplified Debt Form (auto-calc min_payment from installments)
-- CurrencyInput Component (formatted numbers across all inputs)
-
-### Phase 3 - V2.0 (March 24, 2026)
-1. Dashboard auto-scroll fix
-2. Slower logo animation
-3. Income budget comparison
-4. Bank management
-5. Admin full access (impersonation with session cookie swap)
-6. Document upload (Object Storage)
-7. Benefits section
-8. CurrencyInput in survey
-9. Social network (Community) - profiles, connections, shared transactions
-10. Footer with animated logo
-
-### Phase 4 - V2.1 (March 24, 2026)
-11. Dashboard budget tabs (merged expense/income)
-12. Admin Impersonation (full frontend with banner + session management)
-13. Emails removed from Community
-14. Mobile responsive fixes (dialog scroll, number overflow, tooltip colors)
-15. Admin stats cleanup (relevant metrics only)
-16. Categories now personal per user (with delete capability for all including defaults)
-
-### Phase 5 - V3.0 Digital Pockets (April 2026)
-17. **Digital Pockets (Bolsillos)** — Create, fund from available balance, delete.
-18. **Floating Transaction Button** — Fixed bottom-right gold button opens transaction dialog.
-19. **Transactions → Savings/Debts** — Expense transactions can link to savings goals or debts.
-20. **Scorecards with Projected** — Income/Expenses/Balance show projected amounts below real.
-21. **Budget Comparison Table** — Compact table format with ALL user categories.
+### Phase 1-5 (Previous sessions)
+- Google OAuth, survey, CRUD transactions/debts/savings
+- Admin panel with impersonation, categories, advisor chat
+- Digital pockets, floating transaction button, budget comparison
+- Dark/light theme, community, social connections
 
 ### Phase 6 - V4.0 Analytics & Tools (April 16, 2026)
-22. **Shared Transactions restored in FloatingTransaction** — Checkbox + contact selector + percentage slider for splitting expenses with connections.
-23. **Expense Pie Chart on Dashboard** — Donut chart showing % of expenses by category for the selected month, placed above Advisor Chat.
-24. **Debt vs Savings Timeline Chart** — Line chart in Reports page (red=debt, green=savings) with time period filters (week/month/year). Replaces old before/after comparison cards.
-25. **Quick Calculator** — Toggle calculator in both FloatingTransaction and Transactions dialog for quick math operations (+, -, *, /) before entering amounts.
+22. Shared Transactions restored in FloatingTransaction
+23. Expense Pie Chart on Dashboard
+24. Debt vs Savings Timeline Chart in Reports
+25. Quick Calculator in transaction forms
+26. Meeting/Appointment Scheduling (admin to user, Google Calendar link)
+
+### Phase 7 - V5.0 Improvements Batch (April 25, 2026)
+27. **Fixed Header** — Changed from sticky to fixed positioning for Safari/Mac compatibility
+28. **Light Mode Hover Fixes** — CSS overrides for dropdown/select hover states
+29. **Favicon** — SVG + PNG with LD Finance branding
+30. **Date Picker Fix** — Responsive/mobile calendar fix with z-index and portal behavior
+31. **Monthly Balance Card** — "Disponible del mes" shows monthly balance, global in small text
+32. **Budget Per Month** — Backend stores month field, budgets are month-specific (not global)
+33. **Enter Key Saves Budget** — onKeyDown support in CurrencyInput fields
+34. **Budget Comments** — Tooltip on hover (like Excel), recurring option across months
+35. **Gasto Real por Mes Table** — Annual 12-month overview (Ingresos, Gastos, Ahorro, Deudas, Neto) in Dashboard
+36. **Stacked Distribution Chart** — % breakdown per month (Ingresos, Gastos, Ahorro, Deudas) in Reports
+37. **Edit Savings/Debts Amount** — Click to edit current_amount without deleting/recreating
+38. **Google Calendar Admin Attendee** — Calendar link includes admin email
+39. **Payment Reminders/Subscriptions** — In Profile: name, amount, recurrence, due day, "due soon" alerts
 
 ## DB Collections
 - users, transactions, debts, savings_goals, surveys, user_sessions
-- categories, advisor_messages, budgets, banks, documents
+- categories, advisor_messages, budgets (now with month field), banks, documents
 - connections, notifications, shared_transactions
-- pockets (pocket_id, user_id, name, balance, created_at)
-- **meetings** (meeting_id, user_id, admin_id, title, description, date, time, duration_minutes, is_recurring, recurrence, status)
+- pockets, meetings
+- **reminders** (reminder_id, user_id, name, amount, recurrence, due_day, description, is_active)
 
 ## Key API Endpoints
 - Auth: /api/auth/session, /api/auth/me, /api/auth/logout
-- Pockets: /api/pockets (GET/POST), /api/pockets/{id}/fund (POST), /api/pockets/{id} (DELETE)
-- Transactions: /api/transactions (GET/POST) — supports pocket_id, savings_goal_id, debt_id
-- Shared Transactions: /api/transactions/shared (POST), /api/transactions/shared/{id}/accept, reject
-- Budgets: /api/budgets/comparison — returns ALL user categories
-- Dashboard: /api/dashboard — includes pockets, debts, savings_goals, all_transactions
-- Categories: /api/categories (GET/POST/DELETE) — personal per user
-- Admin: /api/admin/impersonate/{user_id}, /api/admin/stop-impersonation
-- Reports Timeline: /api/reports/timeline?period=week|month|year — Historical debt vs savings
-- **Meetings:** /api/admin/users/{id}/meetings (GET/POST), /api/admin/meetings/{id} (PUT/DELETE), /api/meetings (GET user's upcoming)
+- Pockets: /api/pockets (GET/POST), /api/pockets/{id}/fund, /api/pockets/{id} (DELETE)
+- Transactions: /api/transactions (GET/POST/DELETE)
+- Shared: /api/transactions/shared (POST), accept/reject
+- Budgets: /api/budgets (POST with month), /api/budgets/comparison (month-specific)
+- Dashboard: /api/dashboard
+- Reports: /api/reports (annual_overview, stacked_chart), /api/reports/timeline
+- Meetings: /api/admin/users/{id}/meetings, /api/admin/meetings/{id}, /api/meetings
+- Reminders: /api/reminders (GET/POST), /api/reminders/{id} (PUT/DELETE)
+- Edit: /api/savings/{id}/edit, /api/debts/{id}/edit (PUT current_amount)
 
 ## Configuration
 - Admin email: samuelolarte22@gmail.com
@@ -91,14 +67,11 @@
 - Language: Spanish
 
 ## Backlog
-- [ ] Refactoring: Split server.py into routers and models
+- [ ] Audio transaction input (Speech-to-Text with Whisper + LLM extraction)
+- [ ] Refactoring: Split server.py into routers
 - [ ] Export reports as PDF
 - [ ] Recurring transactions
-- [ ] Gamification social (ranking entre amigos)
-- [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
-- [ ] Resumen semanal por email
-- [ ] PWA / App nativa
-amification social (ranking entre amigos)
-- [ ] Notificaciones automaticas (alertas de presupuesto al 80%)
+- [ ] Gamification social
+- [ ] Notificaciones automaticas (80% budget alerts)
 - [ ] Resumen semanal por email
 - [ ] PWA / App nativa

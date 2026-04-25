@@ -30,6 +30,8 @@ const Savings = () => {
   const [contributionDialogOpen, setContributionDialogOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [contributionAmount, setContributionAmount] = useState("");
+  const [editGoalId, setEditGoalId] = useState(null);
+  const [editGoalAmount, setEditGoalAmount] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     target_amount: "",
@@ -117,14 +119,24 @@ const Savings = () => {
 
   const handleDelete = async (goalId) => {
     try {
-      await axios.delete(`${API}/savings/${goalId}`, {
-        withCredentials: true
-      });
+      await axios.delete(`${API}/savings/${goalId}`, { withCredentials: true });
       toast.success("Meta eliminada");
       fetchGoals();
     } catch (error) {
-      console.error("Error deleting goal:", error);
       toast.error("Error al eliminar meta");
+    }
+  };
+
+  const handleEditGoalAmount = async (goalId) => {
+    if (!editGoalAmount) return;
+    try {
+      await axios.put(`${API}/savings/${goalId}/edit`, { current_amount: parseInt(editGoalAmount) }, { withCredentials: true });
+      toast.success("Monto actualizado");
+      setEditGoalId(null);
+      setEditGoalAmount("");
+      fetchGoals();
+    } catch (error) {
+      toast.error("Error al actualizar");
     }
   };
 
@@ -339,9 +351,21 @@ const Savings = () => {
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Ahorrado</span>
-                      <span className="font-mono font-medium text-[#D4AF37]">
-                        {formatCurrency(goal.current_amount)}
-                      </span>
+                      {editGoalId === goal.goal_id ? (
+                        <div className="flex items-center gap-1">
+                          <CurrencyInput value={editGoalAmount} onChange={setEditGoalAmount}
+                            className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleEditGoalAmount(goal.goal_id); if (e.key === 'Escape') setEditGoalId(null); }} />
+                          <button onClick={() => handleEditGoalAmount(goal.goal_id)} className="text-green-400 text-xs">OK</button>
+                          <button onClick={() => setEditGoalId(null)} className="text-gray-500 text-xs">X</button>
+                        </div>
+                      ) : (
+                        <span className="font-mono font-medium text-[#D4AF37] cursor-pointer hover:underline"
+                          onClick={() => { setEditGoalId(goal.goal_id); setEditGoalAmount(String(goal.current_amount)); }}
+                          title="Click para editar" data-testid={`edit-savings-${goal.goal_id}`}>
+                          {formatCurrency(goal.current_amount)}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Meta</span>
