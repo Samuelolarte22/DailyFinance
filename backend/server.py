@@ -196,6 +196,9 @@ class BudgetCreate(BaseModel):
     category: str
     projected_amount: float
     budget_type: Optional[str] = "expense"  # "expense" or "income"
+    month: Optional[str] = None  # YYYY-MM, if None uses current
+    comment: Optional[str] = None
+    comment_recurring: Optional[bool] = False
 
 # ============== BANK MODELS ==============
 
@@ -512,6 +515,22 @@ async def delete_debt(debt_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Debt not found")
     return {"message": "Debt deleted"}
 
+@api_router.put("/debts/{debt_id}/edit")
+async def edit_debt(debt_id: str, request: Request):
+    """Edit a debt's current amount"""
+    user = await get_current_user(request)
+    body = await request.json()
+    new_amount = body.get("current_amount")
+    if new_amount is None:
+        raise HTTPException(status_code=400, detail="current_amount required")
+    result = await db.debts.update_one(
+        {"debt_id": debt_id, "user_id": user["user_id"]},
+        {"$set": {"current_amount": float(new_amount)}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Deuda no encontrada")
+    return {"message": "Deuda actualizada", "current_amount": float(new_amount)}
+
 # ============== SAVINGS GOAL ENDPOINTS ==============
 
 @api_router.get("/savings")
@@ -566,11 +585,27 @@ async def delete_savings_goal(goal_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Savings goal not found")
     return {"message": "Savings goal deleted"}
 
+@api_router.put("/savings/{goal_id}/edit")
+async def edit_savings_goal(goal_id: str, request: Request):
+    """Edit a savings goal's current amount"""
+    user = await get_current_user(request)
+    body = await request.json()
+    new_amount = body.get("current_amount")
+    if new_amount is None:
+        raise HTTPException(status_code=400, detail="current_amount required")
+    result = await db.savings_goals.update_one(
+        {"goal_id": goal_id, "user_id": user["user_id"]},
+        {"$set": {"current_amount": float(new_amount)}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Meta no encontrada")
+    return {"message": "Meta actualizada", "current_amount": float(new_amount)}
+
 # ============== REPORTS ENDPOINT ==============
 
 @api_router.get("/reports")
 async def get_reports(request: Request):
-    """Get financial reports with before/after comparison"""
+    """Get financial reports with annual overview and stacked chart data"""
     user = await get_current_user(request)
     
     survey = await db.surveys.find_one({"user_id": user["user_id"]}, {"_id": 0})
@@ -613,8 +648,73 @@ async def get_reports(request: Request):
         else:
             monthly_data[date_str]["expense"] += txn["amount"]
     
-    # Annual budget comparison
+    # Annual overview by month (Gasto Real por Mes) - like the spreadsheet
     current_year = str(datetime.now(timezone.utc).year)
+    months_es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    
+    # Compute per-month totals for current year
+    monthly_income = {f"{current_year}-{str(m).zfill(2)}": 0 for m in range(1, 13)}
+    monthly_expenses_map = {f"{current_year}-{str(m).zfill(2)}": 0 for m in range(1, 13)}
+    monthly_savings_contributions = {f"{current_year}-{str(m).zfill(2)}": 0 for m in range(1, 13)}
+    monthly_debt_payments = {f"{current_year}-{str(m).zfill(2)}": 0 for m in range(1, 13)}
+    
+    for txn in transactions:
+        txn_month = txn["date"][:7] if isinstance(txn["date"], str) else txn["date"].strftime("%Y-%m")
+        if not txn_month.startswith(current_year):
+            continue
+        if txn["type"] == "income":
+            monthly_income[txn_month] = monthly_income.get(txn_month, 0) + txn["amount"]
+        else:
+            monthly_expenses_map[txn_month] = monthly_expenses_map.get(txn_month, 0) + txn["amount"]
+        if txn.get("savings_goal_id"):
+            monthly_savings_contributions[txn_month] = monthly_savings_contributions.get(txn_month, 0) + txn["amount"]
+        if txn.get("debt_id"):
+            monthly_debt_payments[txn_month] = monthly_debt_payments.get(txn_month, 0) + txn["amount"]
+    
+    annual_overview = []
+    for m in range(1, 13):
+        key = f"{current_year}-{str(m).zfill(2)}"
+        inc = round(monthly_income.get(key, 0))
+        exp = round(monthly_expenses_map.get(key, 0))
+        sav = round(monthly_savings_contributions.get(key, 0))
+        dbt = round(monthly_debt_payments.get(key, 0))
+        annual_overview.append({
+            "month": key,
+            "label": months_es[m - 1],
+            "income": inc,
+            "expenses": exp,
+            "savings": sav,
+            "debts": dbt,
+            "net": inc - exp
+        })
+    
+    # Stacked bar chart data (% distribution per month)
+    stacked_chart = []
+    for item in annual_overview:
+        total = item["income"] + item["expenses"] + item["savings"] + item["debts"]
+        if total == 0:
+            stacked_chart.append({
+                "label": item["label"],
+                "month": item["month"],
+                "income_pct": 0, "expenses_pct": 0, "savings_pct": 0, "debts_pct": 0,
+                "income": 0, "expenses": 0, "savings": 0, "debts": 0
+            })
+        else:
+            stacked_chart.append({
+                "label": item["label"],
+                "month": item["month"],
+                "income_pct": round(item["income"] / total * 100),
+                "expenses_pct": round(item["expenses"] / total * 100),
+                "savings_pct": round(item["savings"] / total * 100),
+                "debts_pct": round(item["debts"] / total * 100),
+                "income": item["income"],
+                "expenses": item["expenses"],
+                "savings": item["savings"],
+                "debts": item["debts"]
+            })
+    
+    # Annual budget comparison
     budgets = await db.budgets.find(
         {"user_id": user["user_id"]}, {"_id": 0}
     ).to_list(200)
@@ -681,6 +781,8 @@ async def get_reports(request: Request):
         "transactions_count": len(transactions),
         "debts_count": len(debts),
         "savings_goals_count": len(savings),
+        "annual_overview": annual_overview,
+        "stacked_chart": stacked_chart,
         "annual_comparison": {
             "year": current_year,
             "expenses": annual_expense_comparison,
@@ -1123,20 +1225,41 @@ async def get_budgets(request: Request):
 
 @api_router.post("/budgets")
 async def upsert_budget(budget_data: BudgetCreate, request: Request):
-    """Create or update a budget for a category"""
+    """Create or update a budget for a category for a specific month"""
     user = await get_current_user(request)
     
+    month = budget_data.month
+    if not month:
+        now = datetime.now(timezone.utc)
+        month = f"{now.year}-{str(now.month).zfill(2)}"
+    
     existing = await db.budgets.find_one(
-        {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type},
+        {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type, "month": month},
         {"_id": 0}
     )
     
+    update_fields = {"projected_amount": budget_data.projected_amount}
+    if budget_data.comment is not None:
+        update_fields["comment"] = budget_data.comment
+        update_fields["comment_recurring"] = budget_data.comment_recurring
+    
     if existing:
         await db.budgets.update_one(
-            {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type},
-            {"$set": {"projected_amount": budget_data.projected_amount}}
+            {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type, "month": month},
+            {"$set": update_fields}
         )
         return {"message": "Presupuesto actualizado", "budget_id": existing["budget_id"]}
+    
+    # Check for recurring comment from previous months
+    if budget_data.comment is None:
+        prev_budget = await db.budgets.find_one(
+            {"user_id": user["user_id"], "category": budget_data.category, "budget_type": budget_data.budget_type, "comment_recurring": True},
+            {"_id": 0},
+            sort=[("month", -1)]
+        )
+        if prev_budget and prev_budget.get("comment"):
+            update_fields["comment"] = prev_budget["comment"]
+            update_fields["comment_recurring"] = True
     
     budget_id = f"bud_{uuid.uuid4().hex[:12]}"
     doc = {
@@ -1145,6 +1268,9 @@ async def upsert_budget(budget_data: BudgetCreate, request: Request):
         "category": budget_data.category,
         "projected_amount": budget_data.projected_amount,
         "budget_type": budget_data.budget_type,
+        "month": month,
+        "comment": update_fields.get("comment", ""),
+        "comment_recurring": update_fields.get("comment_recurring", False),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.budgets.insert_one(doc)
@@ -1174,11 +1300,29 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None, b
     ).to_list(200)
     all_user_cat_names = [c["name"] for c in user_cats]
     
-    # Get budgets of the specified type
+    # Get budgets of the specified type FOR THIS MONTH
     budgets = await db.budgets.find(
-        {"user_id": user["user_id"], "budget_type": budget_type},
+        {"user_id": user["user_id"], "budget_type": budget_type, "month": month},
         {"_id": 0}
     ).to_list(100)
+    
+    # If no month-specific budgets, fall back to budgets without month field (legacy)
+    if not budgets:
+        budgets = await db.budgets.find(
+            {"user_id": user["user_id"], "budget_type": budget_type, "month": {"$exists": False}},
+            {"_id": 0}
+        ).to_list(100)
+    
+    # Also check for recurring comments from other months
+    recurring_comments = {}
+    recurring_budgets = await db.budgets.find(
+        {"user_id": user["user_id"], "budget_type": budget_type, "comment_recurring": True, "comment": {"$ne": ""}},
+        {"_id": 0}
+    ).to_list(200)
+    for rb in recurring_budgets:
+        if rb["category"] not in recurring_comments:
+            recurring_comments[rb["category"]] = rb.get("comment", "")
+    
     budget_map = {b["category"]: b for b in budgets}
     
     # Get transactions of the matching type for the month
@@ -1218,7 +1362,9 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None, b
             "actual": round(actual),
             "difference": round(diff),
             "over_budget": over,
-            "budget_id": budget_id
+            "budget_id": budget_id,
+            "comment": budget_map.get(cat, {}).get("comment", "") or recurring_comments.get(cat, ""),
+            "comment_recurring": budget_map.get(cat, {}).get("comment_recurring", False)
         })
     
     return comparison
@@ -2273,6 +2419,7 @@ async def admin_create_meeting(user_id: str, meeting: MeetingCreate, request: Re
         "user_id": user_id,
         "admin_id": admin["user_id"],
         "admin_name": admin.get("name", "Asesor"),
+        "admin_email": admin.get("email", ""),
         "title": meeting.title,
         "description": meeting.description,
         "date": meeting.date,

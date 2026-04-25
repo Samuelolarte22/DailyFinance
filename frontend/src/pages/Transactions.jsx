@@ -456,12 +456,12 @@ const Transactions = () => {
                       {format(formData.date, "PPP", { locale: es })}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444]" align="start">
+                  <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444] z-[100]" align="start" side="bottom" sideOffset={4}
+                    onOpenAutoFocus={(e) => e.preventDefault()}>
                     <Calendar
                       mode="single"
                       selected={formData.date}
                       onSelect={(date) => date && setFormData({ ...formData, date })}
-                      initialFocus
                       className="bg-[#1a2332]"
                     />
                   </PopoverContent>

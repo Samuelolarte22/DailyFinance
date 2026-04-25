@@ -93,6 +93,10 @@ const Profile = () => {
       dates: `${start}/${end}`,
       details: meeting.description || `Reunion con asesor LD Finance`,
     });
+    // Add admin as attendee so both get the event
+    if (meeting.admin_name) {
+      params.set('add', meeting.admin_email || '');
+    }
     if (meeting.is_recurring && meeting.recurrence) {
       const rrule = meeting.recurrence === 'weekly' ? 'RRULE:FREQ=WEEKLY' : 'RRULE:FREQ=MONTHLY';
       params.set('recur', rrule);

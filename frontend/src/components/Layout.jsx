@@ -75,7 +75,7 @@ const Layout = ({ children }) => {
     <div className="min-h-screen bg-[#141b2d]">
       {/* Impersonation Banner */}
       {isImpersonating && (
-        <div className="sticky top-0 z-[60] bg-amber-500 text-black py-2 px-4" data-testid="impersonation-banner">
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-black py-2 px-4" data-testid="impersonation-banner">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
@@ -97,10 +97,12 @@ const Layout = ({ children }) => {
           </div>
         </div>
       )}
-      {/* Navigation Header */}
-      <header className={`sticky top-0 z-50 backdrop-blur-md border-b ${
-        theme === 'light' ? 'bg-white/90 border-gray-200' : 'bg-[#141b2d]/90 border-[#2a3444]'
-      }`}>
+      {/* Navigation Header - FIXED position for all browsers */}
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b ${
+        isImpersonating ? 'mt-[40px]' : ''
+      } ${
+        theme === 'light' ? 'bg-white/95 border-gray-200' : 'bg-[#141b2d]/95 border-[#2a3444]'
+      }`} data-testid="app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -232,8 +234,8 @@ const Layout = ({ children }) => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Content - offset for fixed header */}
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isImpersonating ? 'pt-[calc(2rem+104px)]' : 'pt-[calc(2rem+64px)]'}`}>
         {children}
       </main>
 

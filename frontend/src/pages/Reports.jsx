@@ -348,34 +348,46 @@ const Reports = () => {
         </Card>
       )}
 
-      {/* Monthly Chart */}
-      <Card data-testid="monthly-chart-card">
+      {/* Stacked Distribution Chart - Distribución de Gasto x Mes */}
+      <Card data-testid="stacked-chart-card">
         <CardHeader>
           <CardTitle style={{ fontFamily: 'Epilogue, sans-serif' }}>
-            Ingresos vs Gastos por Mes
+            Distribucion de Gasto x Mes
           </CardTitle>
+          <p className="text-xs text-muted-foreground">Composicion porcentual por mes (Ingresos, Gastos, Ahorro, Deudas)</p>
         </CardHeader>
         <CardContent>
-          {chartData.length > 0 ? (
+          {reportData?.stacked_chart?.some(d => d.income > 0 || d.expenses > 0) ? (
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barGap={8}>
+                <BarChart data={reportData.stacked_chart} barSize={40}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2a3444" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#9ca3af' }} stroke="#2a3444" />
-                  <YAxis tick={{ fontSize: 12, fill: '#9ca3af' }} stroke="#2a3444"
-                    tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
-                  <Tooltip 
-                    formatter={(value, name) => [formatCurrency(value), name === 'income' ? 'Ingresos' : 'Gastos']}
-                    contentStyle={{ backgroundColor: '#1a2332', border: '1px solid #2a3444', borderRadius: '12px', padding: '12px', color: '#fff' }}
-                    labelStyle={{ color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} stroke="#2a3444" interval={0} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} stroke="#2a3444"
+                    tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="bg-[#1a2332] border border-[#2a3444] rounded-lg px-4 py-3 shadow-xl text-sm">
+                          <p className="text-white font-medium mb-1">{label}</p>
+                          {payload.map((p, i) => (
+                            <p key={i} style={{ color: p.fill }} className="font-mono">
+                              {p.name}: {p.value}%
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }}
                   />
-                  <Bar dataKey="income" name="income" radius={[4, 4, 0, 0]}>
-                    {chartData.map((_, index) => <Cell key={`income-${index}`} fill="hsl(142, 70%, 45%)" />)}
-                  </Bar>
-                  <Bar dataKey="expense" name="expense" radius={[4, 4, 0, 0]}>
-                    {chartData.map((_, index) => <Cell key={`expense-${index}`} fill="hsl(0, 75%, 55%)" />)}
-                  </Bar>
+                  <Legend formatter={(v) => {
+                    const m = { income_pct: 'Ingresos', expenses_pct: 'Gastos', savings_pct: 'Ahorro', debts_pct: 'Deudas' };
+                    return m[v] || v;
+                  }} wrapperStyle={{ fontSize: '12px' }} />
+                  <Bar dataKey="income_pct" name="income_pct" stackId="a" fill="#D4AF37" />
+                  <Bar dataKey="expenses_pct" name="expenses_pct" stackId="a" fill="#8B4513" />
+                  <Bar dataKey="savings_pct" name="savings_pct" stackId="a" fill="#A0845C" />
+                  <Bar dataKey="debts_pct" name="debts_pct" stackId="a" fill="#C8B070" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -383,24 +395,12 @@ const Reports = () => {
             <div className="h-64 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Agrega transacciones para ver el grafico mensual</p>
+                <p>Agrega transacciones para ver la distribucion</p>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-income" />
-          <span>Ingresos</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-expense" />
-          <span>Gastos</span>
-        </div>
-      </div>
     </div>
   );
 };

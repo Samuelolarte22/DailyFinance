@@ -78,6 +78,18 @@
     [data-theme="light"] .text-gray-600 { color: hsl(220 10% 60%) !important; }
     [data-theme="light"] .gold-text { color: hsl(43 65% 40%) !important; }
     [data-theme="light"] .min-h-screen { background-color: hsl(0 0% 97%) !important; }
+
+    /* Light mode hover fixes */
+    [data-theme="light"] .hover\:bg-\[\#2a3444\]:hover { background-color: hsl(220 15% 92%) !important; }
+    [data-theme="light"] .hover\:bg-\[\#1a2332\]:hover { background-color: hsl(220 15% 92%) !important; }
+    [data-theme="light"] .focus\:bg-\[\#2a3444\]:focus { background-color: hsl(220 15% 92%) !important; }
+    [data-theme="light"] .focus\:text-white:focus { color: hsl(222 35% 13%) !important; }
+    [data-theme="light"] .hover\:text-white:hover { color: hsl(222 35% 13%) !important; }
+    [data-theme="light"] [data-radix-collection-item]:hover { background-color: hsl(43 65% 48% / 0.1) !important; color: hsl(43 65% 40%) !important; }
+    [data-theme="light"] [role="option"]:hover,
+    [data-theme="light"] [role="option"][data-highlighted] { background-color: hsl(43 65% 48% / 0.1) !important; color: hsl(43 65% 40%) !important; }
+    [data-theme="light"] .bg-\[\#141b2d\]\/50 { background-color: hsl(220 15% 95%) !important; }
+    [data-theme="light"] .bg-\[\#0d1117\] { background-color: hsl(220 15% 95%) !important; }
 }
 
 @layer base {

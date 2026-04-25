@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, Wallet, CreditCard, PiggyBank,
   ArrowUpRight, ArrowDownRight, ChevronRight, ChevronLeft,
   Calendar as CalendarIcon, Target, Plus, X, Check,
-  Landmark
+  Landmark, BarChart3
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdvisorChat from "../components/AdvisorChat";
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const [incomeBudgetComparison, setIncomeBudgetComparison] = useState([]);
   const [editingBudget, setEditingBudget] = useState(null);
   const [editAmount, setEditAmount] = useState("");
+  const [annualOverview, setAnnualOverview] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -52,8 +53,12 @@ const Dashboard = () => {
 
   const fetchDashboard = async () => {
     try {
-      const response = await axios.get(`${API}/dashboard`, { withCredentials: true });
-      setDashboardData(response.data);
+      const [dashRes, reportsRes] = await Promise.all([
+        axios.get(`${API}/dashboard`, { withCredentials: true }),
+        axios.get(`${API}/reports`, { withCredentials: true }).catch(() => ({ data: {} }))
+      ]);
+      setDashboardData(dashRes.data);
+      setAnnualOverview(reportsRes.data?.annual_overview || []);
     } catch (error) {
       console.error("Error fetching dashboard:", error);
     } finally {
@@ -74,12 +79,18 @@ const Dashboard = () => {
     }
   };
 
-  const handleSaveBudget = async (category, amount, budgetType = "expense") => {
+  const handleSaveBudget = async (category, amount, budgetType = "expense", comment = null, commentRecurring = false) => {
     if (!amount || parseInt(amount) <= 0) return;
     try {
-      await axios.post(`${API}/budgets`, {
-        category, projected_amount: parseInt(amount), budget_type: budgetType
-      }, { withCredentials: true });
+      const payload = {
+        category, projected_amount: parseInt(amount), budget_type: budgetType,
+        month: selectedMonth
+      };
+      if (comment !== null) {
+        payload.comment = comment;
+        payload.comment_recurring = commentRecurring;
+      }
+      await axios.post(`${API}/budgets`, payload, { withCredentials: true });
       toast.success("Presupuesto guardado");
       setEditingBudget(null);
       setEditAmount("");
@@ -248,13 +259,14 @@ const Dashboard = () => {
                 <Wallet className="w-5 h-5 text-[#D4AF37]" />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mb-0.5">Disponible</p>
-            <p className={`text-xl font-bold font-mono ${(dashboardData?.available_balance ?? monthlyData.balance) >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
-              {formatCurrency(dashboardData?.available_balance ?? monthlyData.balance)}
+            <p className="text-xs text-gray-500 mb-0.5">Disponible del mes</p>
+            <p className={`text-xl font-bold font-mono ${monthlyData.balance >= 0 ? 'text-[#D4AF37]' : 'text-red-400'}`}>
+              {formatCurrency(monthlyData.balance)}
             </p>
-            {(dashboardData?.total_in_pockets || 0) > 0 && (
-              <p className="text-[10px] text-gray-500 font-mono mt-1">En bolsillos: {formatCurrency(dashboardData.total_in_pockets)}</p>
-            )}
+            <p className="text-[10px] text-gray-500 font-mono mt-1">
+              Global: {formatCurrency(dashboardData?.available_balance ?? 0)}
+              {(dashboardData?.total_in_pockets || 0) > 0 && ` | Bolsillos: ${formatCurrency(dashboardData.total_in_pockets)}`}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -417,12 +429,23 @@ const Dashboard = () => {
                       const isOver = item.projected > 0 ? item.actual > item.projected : item.actual > 0;
                       return (
                         <tr key={item.category} className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`budget-row-${item.category}`}>
-                          <td className="py-2.5 pr-2 text-white font-medium">{item.category}</td>
+                          <td className="py-2.5 pr-2 text-white font-medium relative">
+                            {item.category}
+                            {item.comment && (
+                              <span className="ml-1 inline-block w-2 h-2 rounded-full bg-[#D4AF37]/60 cursor-help group/comment relative" title={item.comment}>
+                                <span className="absolute bottom-full left-0 mb-1 hidden group-hover/comment:block bg-[#1a2332] border border-[#D4AF37]/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
+                                  {item.comment}
+                                  {item.comment_recurring && <span className="block text-[9px] text-[#D4AF37] mt-1">Recurrente</span>}
+                                </span>
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-2 text-right">
                             {editingBudget === `expense-${item.category}` ? (
                               <div className="flex items-center justify-end gap-1">
                                 <CurrencyInput value={editAmount} onChange={setEditAmount}
-                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs" />
+                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount); }} />
                                 <button onClick={() => handleSaveBudget(item.category, editAmount)} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
                               </div>
@@ -485,12 +508,23 @@ const Dashboard = () => {
                       const isUnder = item.projected > 0 ? item.actual < item.projected : false;
                       return (
                         <tr key={item.category} className="group border-b border-[#2a3444]/50 hover:bg-[#141b2d]/50" data-testid={`income-row-${item.category}`}>
-                          <td className="py-2.5 pr-2 text-white font-medium">{item.category}</td>
+                          <td className="py-2.5 pr-2 text-white font-medium">
+                            {item.category}
+                            {item.comment && (
+                              <span className="ml-1 inline-block w-2 h-2 rounded-full bg-green-400/60 cursor-help group/comment relative" title={item.comment}>
+                                <span className="absolute bottom-full left-0 mb-1 hidden group-hover/comment:block bg-[#1a2332] border border-green-500/30 text-xs text-gray-300 p-2 rounded-lg shadow-xl whitespace-pre-wrap max-w-[200px] z-50">
+                                  {item.comment}
+                                  {item.comment_recurring && <span className="block text-[9px] text-green-400 mt-1">Recurrente</span>}
+                                </span>
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-2 text-right">
                             {editingBudget === `income-${item.category}` ? (
                               <div className="flex items-center justify-end gap-1">
                                 <CurrencyInput value={editAmount} onChange={setEditAmount}
-                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs" />
+                                  className="bg-[#141b2d] border-[#2a3444] text-white w-24 h-6 text-xs"
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveBudget(item.category, editAmount, "income"); }} />
                                 <button onClick={() => handleSaveBudget(item.category, editAmount, "income")} className="text-green-400"><Check className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setEditingBudget(null)} className="text-gray-500"><X className="w-3.5 h-3.5" /></button>
                               </div>
@@ -538,6 +572,62 @@ const Dashboard = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Gasto Real por Mes - Annual Overview */}
+      {annualOverview.length > 0 && (
+        <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="annual-overview-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white flex items-center gap-2 text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
+              <BarChart3 className="w-5 h-5 text-[#D4AF37]" />
+              Gasto Real por Mes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" data-testid="annual-overview-table">
+                <thead>
+                  <tr className="text-xs text-[#D4AF37] border-b border-[#D4AF37]/30 bg-[#D4AF37]/5">
+                    <th className="text-left py-2 pr-2 font-semibold pl-2">Mes</th>
+                    <th className="text-right py-2 px-2 font-semibold">Ingresos</th>
+                    <th className="text-right py-2 px-2 font-semibold">Gastos</th>
+                    <th className="text-right py-2 px-2 font-semibold">Ahorro</th>
+                    <th className="text-right py-2 px-2 font-semibold">Deudas</th>
+                    <th className="text-right py-2 pl-2 font-semibold pr-2">Neto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {annualOverview.map((row) => {
+                    const isCurrentMonth = row.month === selectedMonth;
+                    const hasData = row.income > 0 || row.expenses > 0;
+                    return (
+                      <tr key={row.month} className={`border-b border-[#2a3444]/30 ${isCurrentMonth ? 'bg-[#D4AF37]/5 font-semibold' : ''} ${!hasData ? 'opacity-40' : ''}`}>
+                        <td className="py-2 pl-2 pr-2 text-white">{row.label}</td>
+                        <td className="py-2 px-2 text-right font-mono text-green-400">{hasData ? formatCurrency(row.income) : '$0'}</td>
+                        <td className="py-2 px-2 text-right font-mono text-red-400">{hasData ? formatCurrency(row.expenses) : '$0'}</td>
+                        <td className="py-2 px-2 text-right font-mono text-[#D4AF37]">{row.savings > 0 ? formatCurrency(row.savings) : '$0'}</td>
+                        <td className="py-2 px-2 text-right font-mono text-purple-400">{row.debts > 0 ? formatCurrency(row.debts) : '$0'}</td>
+                        <td className={`py-2 pl-2 pr-2 text-right font-mono font-medium ${row.net >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {hasData ? formatCurrency(row.net) : '$0'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-[#D4AF37]/30 text-xs font-bold">
+                    <td className="py-2 pl-2 text-[#D4AF37]">Total Anual</td>
+                    <td className="py-2 px-2 text-right font-mono text-green-400">{formatCurrency(annualOverview.reduce((s, r) => s + r.income, 0))}</td>
+                    <td className="py-2 px-2 text-right font-mono text-red-400">{formatCurrency(annualOverview.reduce((s, r) => s + r.expenses, 0))}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#D4AF37]">{formatCurrency(annualOverview.reduce((s, r) => s + r.savings, 0))}</td>
+                    <td className="py-2 px-2 text-right font-mono text-purple-400">{formatCurrency(annualOverview.reduce((s, r) => s + r.debts, 0))}</td>
+                    <td className="py-2 pl-2 pr-2 text-right font-mono text-[#D4AF37]">{formatCurrency(annualOverview.reduce((s, r) => s + r.net, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Actions */}
       <div className="grid sm:grid-cols-3 gap-3">

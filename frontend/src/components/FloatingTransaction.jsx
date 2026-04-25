@@ -247,8 +247,9 @@ const FloatingTransaction = () => {
                   {format(form.date, "PPP", { locale: es })}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444]" align="start">
-                <Calendar mode="single" selected={form.date} onSelect={(d) => d && setForm({ ...form, date: d })} initialFocus className="bg-[#1a2332]" />
+              <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444] z-[100]" align="start" side="bottom" sideOffset={4}
+                onOpenAutoFocus={(e) => e.preventDefault()}>
+                <Calendar mode="single" selected={form.date} onSelect={(d) => d && setForm({ ...form, date: d })} className="bg-[#1a2332]" />
               </PopoverContent>
             </Popover>
           </div>
