@@ -11,7 +11,7 @@ import { Calendar } from "./ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Plus, ArrowUpRight, ArrowDownRight, Calendar as CalendarIcon, Calculator, Users } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Calendar as CalendarIcon, Calculator, Users, Mic, MicOff, Loader2 } from "lucide-react";
 import CurrencyInput from "./CurrencyInput";
 import { toast } from "sonner";
 
@@ -100,13 +100,16 @@ const FloatingTransaction = () => {
   const [pockets, setPockets] = useState([]);
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [debts, setDebts] = useState([]);
-  // Shared transaction
   const [connections, setConnections] = useState([]);
   const [isShared, setIsShared] = useState(false);
   const [sharedWith, setSharedWith] = useState("");
   const [myPercentage, setMyPercentage] = useState("50");
-  // Calculator
   const [showCalc, setShowCalc] = useState(false);
+  // Voice recording
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [mediaRecorder, setMediaRecorder] = useState(null);
 
   useEffect(() => {
     if (open) loadData();
@@ -129,6 +132,73 @@ const FloatingTransaction = () => {
       setConnections(connRes.data || []);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const chunks = [];
+      
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        await processAudio(blob);
+      };
+      
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setVoiceTranscript("");
+      toast.info("Grabando... habla ahora");
+    } catch (err) {
+      toast.error("No se pudo acceder al microfono");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const processAudio = async (blob) => {
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", blob, "voice.webm");
+      
+      const res = await axios.post(`${API}/voice/parse-transaction`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      
+      const { transcript, parsed, error } = res.data;
+      setVoiceTranscript(transcript || "");
+      
+      if (parsed) {
+        // Auto-fill form with parsed data
+        const newForm = { ...form };
+        if (parsed.type) newForm.type = parsed.type;
+        if (parsed.category) newForm.category = parsed.category;
+        if (parsed.amount) newForm.amount = String(parsed.amount);
+        if (parsed.description) newForm.description = parsed.description;
+        if (parsed.date) {
+          try { newForm.date = new Date(parsed.date + "T12:00:00"); } catch (e) { /* keep current */ }
+        }
+        setForm(newForm);
+        toast.success("Datos extraidos del audio");
+      } else {
+        toast.error(error || "No se pudieron extraer datos");
+      }
+    } catch (err) {
+      toast.error("Error al procesar audio");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -191,6 +261,38 @@ const FloatingTransaction = () => {
         <DialogHeader>
           <DialogTitle className="text-white" style={{ fontFamily: 'Playfair Display, serif' }}>Nueva transaccion</DialogTitle>
         </DialogHeader>
+        
+        {/* Voice Input */}
+        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-[#2a3444] bg-[#141b2d]/50" data-testid="voice-input-section">
+          <button type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ${
+              isRecording ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30' 
+              : isProcessing ? 'bg-[#2a3444] text-gray-500'
+              : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30'
+            }`}
+            data-testid="voice-record-btn">
+            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> 
+              : isRecording ? <MicOff className="w-5 h-5" /> 
+              : <Mic className="w-5 h-5" />}
+          </button>
+          <div className="flex-1 min-w-0">
+            {isRecording && (
+              <p className="text-xs text-red-400 animate-pulse">Grabando... toca para detener</p>
+            )}
+            {isProcessing && (
+              <p className="text-xs text-[#D4AF37]">Procesando audio...</p>
+            )}
+            {!isRecording && !isProcessing && !voiceTranscript && (
+              <p className="text-xs text-gray-500">Di algo como: <span className="italic text-gray-400">"Gaste 15 mil en Uber hoy"</span></p>
+            )}
+            {voiceTranscript && !isRecording && !isProcessing && (
+              <p className="text-xs text-green-400 truncate" title={voiceTranscript}>"{voiceTranscript}"</p>
+            )}
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs value={form.type} onValueChange={(v) => setForm({ ...form, type: v, category: "", savings_goal_id: "", debt_id: "" })}>
             <TabsList className="grid w-full grid-cols-2 bg-[#141b2d]">

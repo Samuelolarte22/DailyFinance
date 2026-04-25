@@ -2219,6 +2219,120 @@ async def get_debt_snowball(request: Request):
         "months_to_payoff": len(schedule)
     }
 
+# ============== VOICE TRANSACTION PARSING ==============
+
+@api_router.post("/voice/parse-transaction")
+async def parse_voice_transaction(request: Request, file: UploadFile = File(...)):
+    """Receive audio, transcribe with Whisper, extract transaction data with GPT"""
+    from emergentintegrations.llm.openai import OpenAISpeechToText
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json as json_mod
+    import tempfile
+    
+    user = await get_current_user(request)
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Get user's categories for context
+    user_cats = await db.categories.find(
+        {"user_id": user["user_id"]}, {"_id": 0}
+    ).to_list(200)
+    expense_cats = [c["name"] for c in user_cats if c["type"] == "expense"]
+    income_cats = [c["name"] for c in user_cats if c["type"] == "income"]
+    
+    # Step 1: Transcribe audio with Whisper
+    try:
+        audio_data = await file.read()
+        
+        # Write to temp file
+        suffix = ".webm"
+        if file.filename:
+            ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "webm"
+            suffix = f".{ext}"
+        
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_data)
+            tmp_path = tmp.name
+        
+        stt = OpenAISpeechToText(api_key=api_key)
+        with open(tmp_path, "rb") as audio_file:
+            response = await stt.transcribe(
+                file=audio_file,
+                model="whisper-1",
+                language="es",
+                response_format="json"
+            )
+        
+        transcript = response.text
+        logger.info(f"Transcribed: {transcript}")
+        
+        # Cleanup
+        os.unlink(tmp_path)
+        
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al transcribir: {str(e)}")
+    
+    if not transcript or len(transcript.strip()) < 3:
+        return {"transcript": transcript, "parsed": None, "error": "No se detecto audio claro"}
+    
+    # Step 2: Parse with GPT
+    try:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        system_prompt = f"""Eres un asistente financiero que extrae datos de transacciones de texto en español.
+El usuario describe una transaccion. Extrae los siguientes campos en formato JSON:
+- "type": "expense" o "income"
+- "category": la categoria mas cercana de las disponibles
+- "amount": numero entero (en pesos colombianos COP)
+- "description": descripcion breve
+- "date": fecha en formato YYYY-MM-DD (hoy es {today})
+
+Categorias de gasto disponibles: {', '.join(expense_cats) if expense_cats else 'Alimentacion, Transporte, Entretenimiento, Educacion, Salud, Ropa, Tecnologia, Servicios'}
+Categorias de ingreso disponibles: {', '.join(income_cats) if income_cats else 'Salario, Mesada, Beca, Trabajo freelance, Regalo'}
+
+Si el usuario dice "gaste" o menciona un gasto, type es "expense".
+Si dice "recibi", "me pagaron", "ingreso", type es "income".
+Si no menciona fecha, usa la fecha de hoy.
+Si el monto no es claro, estima lo mejor posible.
+
+Responde SOLO con JSON valido, sin texto adicional."""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"voice_{user['user_id']}_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4.1-mini")
+        
+        gpt_response = await chat.send_message(UserMessage(text=transcript))
+        
+        # Parse JSON from response
+        cleaned = gpt_response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            cleaned = cleaned.rsplit("```", 1)[0]
+        
+        parsed = json_mod.loads(cleaned)
+        
+        # Validate and clean
+        if "amount" in parsed:
+            parsed["amount"] = abs(int(float(str(parsed["amount"]).replace(",", "").replace(".", ""))))
+        
+        return {
+            "transcript": transcript,
+            "parsed": parsed
+        }
+        
+    except Exception as e:
+        logger.error(f"GPT parsing failed: {e}")
+        return {
+            "transcript": transcript,
+            "parsed": None,
+            "error": f"No se pudo interpretar: {str(e)}"
+        }
+
 # ============== CATEGORY ENDPOINTS ==============
 
 DEFAULT_INCOME_CATEGORIES = ["Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"]
