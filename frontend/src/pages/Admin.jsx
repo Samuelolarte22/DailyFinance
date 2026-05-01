@@ -43,7 +43,8 @@ import {
   Clock,
   Repeat,
   Edit,
-  X
+  X,
+  Mail
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
@@ -729,6 +730,45 @@ const Admin = () => {
                         {formatCurrency(userDetail.summary?.balance || 0)}
                       </p>
                     </div>
+
+                    {/* Subscription Tracking */}
+                    <div className="mt-4 p-4 rounded-xl border border-[#2a3444] bg-[#141b2d]/50" data-testid="subscription-section">
+                      <p className="text-sm font-medium text-white mb-3">Suscripcion</p>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-gray-400">Dia de pago:</label>
+                          <Input type="number" min="1" max="31" className="w-16 h-7 text-xs bg-[#141b2d] border-[#2a3444] text-white"
+                            defaultValue={userDetail.user?.subscription_payment_day || ""}
+                            onBlur={(e) => {
+                              if (e.target.value) {
+                                axios.put(`${API}/admin/users/${selectedUser}/subscription`, { payment_day: parseInt(e.target.value) }, { withCredentials: true });
+                                toast.success("Dia de pago actualizado");
+                              }
+                            }}
+                            data-testid="subscription-day-input" />
+                        </div>
+                        {userDetail.user?.subscription_payment_day && (
+                          <>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              userDetail.user?.subscription_status === 'overdue' 
+                                ? 'bg-red-500/20 text-red-400' 
+                                : 'bg-green-500/20 text-green-400'
+                            }`} data-testid="subscription-status">
+                              {userDetail.user?.subscription_status === 'overdue' ? 'Vencido' : 'Al dia'}
+                            </span>
+                            <Button size="sm" variant="outline" className="h-6 text-[10px] border-green-500/50 text-green-400 hover:bg-green-500/10"
+                              onClick={async () => {
+                                await axios.put(`${API}/admin/users/${selectedUser}/subscription`, { confirmed_payment: true }, { withCredentials: true });
+                                toast.success("Pago confirmado");
+                                fetchUserDetail(selectedUser);
+                              }}
+                              data-testid="confirm-payment-btn">
+                              Confirmar pago
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="transactions">
@@ -875,6 +915,17 @@ const Admin = () => {
                                     className="p-1.5 rounded hover:bg-[#2a3444] text-gray-500 hover:text-[#D4AF37] transition-colors"
                                     data-testid={`edit-meeting-${meeting.meeting_id}`}>
                                     <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={async () => {
+                                    try {
+                                      await axios.post(`${API}/admin/send-reminder-email`, { user_id: selectedUser, type: "meeting" }, { withCredentials: true });
+                                      toast.success("Email de recordatorio enviado");
+                                    } catch (e) { toast.error("Error al enviar email"); }
+                                  }}
+                                    className="p-1.5 rounded hover:bg-[#2a3444] text-gray-500 hover:text-green-400 transition-colors"
+                                    title="Enviar recordatorio por email"
+                                    data-testid={`email-meeting-${meeting.meeting_id}`}>
+                                    <Mail className="w-3.5 h-3.5" />
                                   </button>
                                   <button onClick={() => handleCancelMeeting(meeting.meeting_id)}
                                     className="p-1.5 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"

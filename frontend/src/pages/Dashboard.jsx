@@ -138,6 +138,32 @@ const Dashboard = () => {
     }
   };
 
+  const handleWithdrawPocket = async (pocketId) => {
+    if (!fundAmount || parseInt(fundAmount) <= 0) return;
+    try {
+      await axios.post(`${API}/pockets/${pocketId}/withdraw`, { amount: parseInt(fundAmount) }, { withCredentials: true });
+      toast.success("Fondos retirados");
+      setFundPocketId(null);
+      setFundAmount("");
+      fetchDashboard();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Error al retirar");
+    }
+  };
+
+  const handleEditPocketBalance = async (pocketId) => {
+    if (!fundAmount) return;
+    try {
+      await axios.put(`${API}/pockets/${pocketId}/edit`, { balance: parseInt(fundAmount) }, { withCredentials: true });
+      toast.success("Balance actualizado");
+      setFundPocketId(null);
+      setFundAmount("");
+      fetchDashboard();
+    } catch (error) {
+      toast.error("Error al actualizar");
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0
@@ -336,20 +362,24 @@ const Dashboard = () => {
                     {formatCurrency(p.balance)}
                   </p>
                   {fundPocketId === p.pocket_id ? (
-                    <div className="flex items-center gap-1 mt-2">
+                    <div className="mt-2 space-y-1">
                       <CurrencyInput value={fundAmount} onChange={setFundAmount}
-                        className="bg-[#1a2332] border-[#2a3444] text-white h-6 text-xs w-20" />
-                      <button onClick={() => handleFundPocket(p.pocket_id)} className="text-green-400 hover:text-green-300">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => { setFundPocketId(null); setFundAmount(""); }} className="text-gray-500">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                        className="bg-[#1a2332] border-[#2a3444] text-white h-6 text-xs w-full"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleFundPocket(p.pocket_id); }} />
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleFundPocket(p.pocket_id)} className="text-[9px] text-green-400 hover:underline">Agregar</button>
+                        <span className="text-gray-600 text-[9px]">|</span>
+                        <button onClick={() => handleWithdrawPocket(p.pocket_id)} className="text-[9px] text-amber-400 hover:underline">Retirar</button>
+                        <span className="text-gray-600 text-[9px]">|</span>
+                        <button onClick={() => handleEditPocketBalance(p.pocket_id)} className="text-[9px] text-blue-400 hover:underline">Fijar</button>
+                        <span className="text-gray-600 text-[9px]">|</span>
+                        <button onClick={() => { setFundPocketId(null); setFundAmount(""); }} className="text-[9px] text-gray-500 hover:underline">X</button>
+                      </div>
                     </div>
                   ) : (
                     <button onClick={() => setFundPocketId(p.pocket_id)}
                       className="text-[10px] text-[#D4AF37] hover:underline mt-1 block">
-                      + Fondear
+                      Editar balance
                     </button>
                   )}
                 </div>

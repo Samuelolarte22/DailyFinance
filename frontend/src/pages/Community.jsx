@@ -134,7 +134,7 @@ const Community = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn" data-testid="community-page">
+    <div className="space-y-6 animate-fadeIn overflow-x-hidden" data-testid="community-page">
       <Toaster position="top-right" richColors />
 
       <div>
@@ -202,9 +202,9 @@ const Community = () => {
 
           <div className="space-y-2">
             {filteredUsers.length > 0 ? filteredUsers.map(u => (
-              <div key={u.user_id} className="flex items-center gap-3 p-4 rounded-lg bg-[#1a2332] border border-[#2a3444]"
+              <div key={u.user_id} className="flex items-center gap-3 p-4 rounded-lg bg-[#1a2332] border border-[#2a3444] overflow-hidden"
                 data-testid={`user-card-${u.user_id}`}>
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10 shrink-0">
                   <AvatarImage src={u.picture} />
                   <AvatarFallback className="bg-[#D4AF37]/20 text-[#D4AF37]">{u.name?.[0]}</AvatarFallback>
                 </Avatar>

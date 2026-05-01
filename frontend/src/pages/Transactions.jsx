@@ -36,7 +36,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Toaster, toast } from "sonner";
 import CurrencyInput from "../components/CurrencyInput";
-import { Calculator } from "lucide-react";
+import AiFinancialChat from "../components/AiFinancialChat";
+import { Calculator, Mic, MicOff, Loader2 } from "lucide-react";
 
 const QuickCalculator = ({ onResult }) => {
   const [display, setDisplay] = useState("0");
@@ -130,6 +131,12 @@ const Transactions = () => {
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [debts, setDebts] = useState([]);
   const [showCalc, setShowCalc] = useState(false);
+  const [txnCalendarOpen, setTxnCalendarOpen] = useState(false);
+  // Voice
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [txnMediaRecorder, setTxnMediaRecorder] = useState(null);
 
   const [incomeCategories, setIncomeCategories] = useState([
     "Salario", "Mesada", "Beca", "Trabajo freelance", "Regalo", "Venta", "Otro ingreso"
@@ -282,6 +289,50 @@ const Transactions = () => {
     }
   };
 
+  const startTxnRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setIsVoiceProcessing(true);
+        try {
+          const fd = new FormData();
+          fd.append("file", blob, "voice.webm");
+          const res = await axios.post(`${API}/voice/parse-transaction`, fd, { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } });
+          const { transcript, parsed } = res.data;
+          setVoiceTranscript(transcript || "");
+          if (parsed) {
+            const nf = { ...formData };
+            if (parsed.type) nf.type = parsed.type;
+            if (parsed.category) nf.category = parsed.category;
+            if (parsed.amount) nf.amount = String(parsed.amount);
+            if (parsed.description) nf.description = parsed.description;
+            if (parsed.date) { try { nf.date = new Date(parsed.date + "T12:00:00"); } catch (e) {} }
+            setFormData(nf);
+            toast.success("Datos extraidos del audio");
+          } else { toast.error("No se pudieron extraer datos"); }
+        } catch (err) { toast.error("Error al procesar audio"); }
+        finally { setIsVoiceProcessing(false); }
+      };
+      recorder.start();
+      setTxnMediaRecorder(recorder);
+      setIsRecording(true);
+      setVoiceTranscript("");
+      toast.info("Grabando... habla ahora");
+    } catch (err) { toast.error("No se pudo acceder al microfono"); }
+  };
+
+  const stopTxnRecording = () => {
+    if (txnMediaRecorder && txnMediaRecorder.state === "recording") {
+      txnMediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -372,6 +423,30 @@ const Transactions = () => {
                 Agregar transacción
               </DialogTitle>
             </DialogHeader>
+
+            {/* Voice Input */}
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-[#2a3444] bg-[#141b2d]/50" data-testid="txn-voice-input">
+              <button type="button"
+                onClick={isRecording ? stopTxnRecording : startTxnRecording}
+                disabled={isVoiceProcessing}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                  isRecording ? 'bg-red-500 text-white animate-pulse' 
+                  : isVoiceProcessing ? 'bg-[#2a3444] text-gray-500'
+                  : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30'
+                }`}
+                data-testid="txn-voice-btn">
+                {isVoiceProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> 
+                  : isRecording ? <MicOff className="w-4 h-4" /> 
+                  : <Mic className="w-4 h-4" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                {isRecording && <p className="text-xs text-red-400 animate-pulse">Grabando...</p>}
+                {isVoiceProcessing && <p className="text-xs text-[#D4AF37]">Procesando...</p>}
+                {!isRecording && !isVoiceProcessing && !voiceTranscript && <p className="text-xs text-gray-500">Dicta tu transaccion</p>}
+                {voiceTranscript && !isRecording && !isVoiceProcessing && <p className="text-xs text-green-400 truncate">"{voiceTranscript}"</p>}
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Transaction Type Tabs */}
               <Tabs 
@@ -445,7 +520,7 @@ const Transactions = () => {
               {/* Date */}
               <div className="space-y-2">
                 <Label className="text-gray-300">Fecha</Label>
-                <Popover>
+                <Popover open={txnCalendarOpen} onOpenChange={setTxnCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -461,7 +536,7 @@ const Transactions = () => {
                     <Calendar
                       mode="single"
                       selected={formData.date}
-                      onSelect={(date) => date && setFormData({ ...formData, date })}
+                      onSelect={(date) => { if (date) { setFormData({ ...formData, date }); setTxnCalendarOpen(false); } }}
                       className="bg-[#1a2332]"
                     />
                   </PopoverContent>
@@ -731,6 +806,9 @@ const Transactions = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* AI Financial Chat */}
+      <AiFinancialChat />
     </div>
   );
 };

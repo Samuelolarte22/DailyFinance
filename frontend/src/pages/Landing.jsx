@@ -20,6 +20,15 @@ const Landing = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  // Landing always uses dark theme
+  useEffect(() => {
+    const savedTheme = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    return () => {
+      if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    };
+  }, []);
+
   useEffect(() => {
     if (!loading && user) {
       if (user.has_completed_survey) {

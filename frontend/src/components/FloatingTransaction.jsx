@@ -110,6 +110,7 @@ const FloatingTransaction = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   useEffect(() => {
     if (open) loadData();
@@ -342,7 +343,7 @@ const FloatingTransaction = () => {
 
           <div className="space-y-1.5">
             <Label className="text-gray-300 text-xs">Fecha</Label>
-            <Popover>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left bg-[#141b2d] border-[#2a3444] text-white hover:bg-[#2a3444]" data-testid="ftxn-date">
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -351,7 +352,7 @@ const FloatingTransaction = () => {
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 bg-[#1a2332] border-[#2a3444] z-[100]" align="start" side="bottom" sideOffset={4}
                 onOpenAutoFocus={(e) => e.preventDefault()}>
-                <Calendar mode="single" selected={form.date} onSelect={(d) => d && setForm({ ...form, date: d })} className="bg-[#1a2332]" />
+                <Calendar mode="single" selected={form.date} onSelect={(d) => { if (d) { setForm({ ...form, date: d }); setCalendarOpen(false); } }} className="bg-[#1a2332]" />
               </PopoverContent>
             </Popover>
           </div>

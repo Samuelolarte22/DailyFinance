@@ -1453,6 +1453,58 @@ async def delete_pocket(pocket_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Bolsillo no encontrado")
     return {"message": "Bolsillo eliminado"}
 
+@api_router.put("/pockets/{pocket_id}/edit")
+async def edit_pocket(pocket_id: str, request: Request):
+    """Edit a pocket's name or adjust balance"""
+    user = await get_current_user(request)
+    body = await request.json()
+    
+    pocket = await db.pockets.find_one({"pocket_id": pocket_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pocket:
+        raise HTTPException(status_code=404, detail="Bolsillo no encontrado")
+    
+    update_fields = {}
+    if "name" in body:
+        update_fields["name"] = body["name"]
+    
+    if "balance" in body:
+        new_balance = float(body["balance"])
+        if new_balance < 0:
+            raise HTTPException(status_code=400, detail="Balance no puede ser negativo")
+        update_fields["balance"] = new_balance
+    
+    if update_fields:
+        await db.pockets.update_one(
+            {"pocket_id": pocket_id, "user_id": user["user_id"]},
+            {"$set": update_fields}
+        )
+    
+    return {"message": "Bolsillo actualizado"}
+
+@api_router.post("/pockets/{pocket_id}/withdraw")
+async def withdraw_pocket(pocket_id: str, request: Request):
+    """Withdraw funds from pocket back to available balance"""
+    user = await get_current_user(request)
+    body = await request.json()
+    amount = float(body.get("amount", 0))
+    
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Monto debe ser positivo")
+    
+    pocket = await db.pockets.find_one({"pocket_id": pocket_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pocket:
+        raise HTTPException(status_code=404, detail="Bolsillo no encontrado")
+    
+    if amount > pocket["balance"]:
+        raise HTTPException(status_code=400, detail="Fondos insuficientes en el bolsillo")
+    
+    await db.pockets.update_one(
+        {"pocket_id": pocket_id},
+        {"$inc": {"balance": -amount}}
+    )
+    
+    return {"message": f"Retirado {amount} del bolsillo", "new_balance": pocket["balance"] - amount}
+
 
 # ============== ADMIN VIEW/EDIT USER DATA ==============
 
@@ -2332,6 +2384,241 @@ Responde SOLO con JSON valido, sin texto adicional."""
             "parsed": None,
             "error": f"No se pudo interpretar: {str(e)}"
         }
+
+# ============== AI FINANCIAL CHAT ==============
+
+@api_router.post("/ai/chat")
+async def ai_financial_chat(request: Request):
+    """AI chat that can answer questions about the user's financial data"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    user = await get_current_user(request)
+    body = await request.json()
+    message = body.get("message", "")
+    session_id = body.get("session_id", f"aichat_{user['user_id']}")
+    
+    if not message:
+        raise HTTPException(status_code=400, detail="Message required")
+    
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Gather user's financial context
+    now = datetime.now(timezone.utc)
+    current_month = f"{now.year}-{str(now.month).zfill(2)}"
+    
+    transactions = await db.transactions.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(5000)
+    debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
+    
+    # Summarize financial data
+    monthly_txns = [t for t in transactions if isinstance(t.get("date"), str) and t["date"].startswith(current_month)]
+    total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
+    total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
+    month_income = sum(t["amount"] for t in monthly_txns if t["type"] == "income")
+    month_expenses = sum(t["amount"] for t in monthly_txns if t["type"] == "expense")
+    
+    # Category breakdown this month
+    cat_breakdown = {}
+    for t in monthly_txns:
+        if t["type"] == "expense":
+            cat_breakdown[t["category"]] = cat_breakdown.get(t["category"], 0) + t["amount"]
+    
+    # Recent transactions (last 20)
+    recent = sorted(transactions, key=lambda x: x.get("date", ""), reverse=True)[:20]
+    recent_text = "\n".join([
+        f"- {t['date']}: {t['type']} {t['category']} ${t['amount']:,} {t.get('description', '')}"
+        for t in recent
+    ])
+    
+    debt_text = "\n".join([f"- {d['name']}: Total ${d['total_amount']:,}, Pendiente ${d['current_amount']:,}" for d in debts]) or "Sin deudas"
+    savings_text = "\n".join([f"- {s['name']}: ${s['current_amount']:,} de ${s['target_amount']:,}" for s in savings]) or "Sin metas de ahorro"
+    pocket_text = "\n".join([f"- {p['name']}: ${p['balance']:,}" for p in pockets]) or "Sin bolsillos"
+    cat_text = "\n".join([f"- {cat}: ${amt:,}" for cat, amt in sorted(cat_breakdown.items(), key=lambda x: -x[1])]) or "Sin gastos este mes"
+    
+    system_prompt = f"""Eres un asesor financiero inteligente de LD Finance. Tienes acceso completo a los datos financieros del usuario.
+Responde en español, de forma clara y util. Puedes dar recomendaciones, analizar patrones, y responder preguntas especificas.
+Usa formato corto y directo. Si mencionas montos, usa formato colombiano ($ con puntos como separador de miles).
+
+DATOS DEL USUARIO ({user.get('name', 'Usuario')}):
+- Balance global: Ingresos totales ${total_income:,} - Gastos totales ${total_expenses:,} = ${total_income - total_expenses:,}
+- Este mes ({current_month}): Ingresos ${month_income:,}, Gastos ${month_expenses:,}
+
+GASTOS POR CATEGORIA ESTE MES:
+{cat_text}
+
+DEUDAS:
+{debt_text}
+
+METAS DE AHORRO:
+{savings_text}
+
+BOLSILLOS DIGITALES:
+{pocket_text}
+
+ULTIMAS 20 TRANSACCIONES:
+{recent_text}
+
+Responde la pregunta del usuario basandote en estos datos reales."""
+
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4.1-mini")
+        
+        response = await chat.send_message(UserMessage(text=message))
+        
+        return {"response": response, "session_id": session_id}
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+# ============== EMAIL NOTIFICATION SYSTEM ==============
+
+async def send_email(to_email: str, subject: str, html_body: str):
+    """Send email via Resend with LD Finance branding"""
+    import resend
+    resend.api_key = os.environ.get("RESEND_API_KEY")
+    if not resend.api_key:
+        logger.warning("RESEND_API_KEY not set, skipping email")
+        return False
+    try:
+        resend.Emails.send({
+            "from": "LD Finance <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Email send failed: {e}")
+        return False
+
+def build_email_html(title: str, body_content: str):
+    """Build branded LD Finance email HTML"""
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background-color:#141b2d;font-family:Georgia,serif;">
+<div style="max-width:600px;margin:0 auto;padding:40px 20px;">
+  <div style="text-align:center;padding:30px 0;border-bottom:2px solid #D4AF37;">
+    <h1 style="color:#D4AF37;font-size:28px;margin:0;">LD Finance</h1>
+    <p style="color:#9ca3af;font-size:12px;margin:5px 0 0;">Decisiones financieras inteligentes</p>
+  </div>
+  <div style="padding:30px 0;">
+    <h2 style="color:#ffffff;font-size:20px;margin:0 0 20px;">{title}</h2>
+    <div style="color:#d1d5db;font-size:14px;line-height:1.6;">
+      {body_content}
+    </div>
+  </div>
+  <div style="border-top:1px solid #2a3444;padding:20px 0;text-align:center;">
+    <p style="color:#6b7280;font-size:11px;margin:0;">Este es un mensaje automatico de LD Finance.</p>
+    <p style="color:#6b7280;font-size:11px;margin:5px 0 0;">No responder a este correo.</p>
+  </div>
+</div>
+</body></html>"""
+
+@api_router.post("/admin/send-reminder-email")
+async def admin_send_reminder_email(request: Request):
+    """Admin manually sends a reminder email to a user"""
+    await get_admin_user(request)
+    body = await request.json()
+    user_id = body.get("user_id")
+    reminder_type = body.get("type", "payment")  # "payment" or "meeting"
+    
+    target_user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Get admin emails for CC
+    admin_users = await db.users.find({"is_admin": True}, {"_id": 0}).to_list(10)
+    
+    if reminder_type == "meeting":
+        meetings = await db.meetings.find(
+            {"user_id": user_id, "status": "scheduled"},
+            {"_id": 0}
+        ).sort("date", 1).to_list(5)
+        
+        if not meetings:
+            raise HTTPException(status_code=400, detail="No hay reuniones agendadas")
+        
+        meeting = meetings[0]
+        html = build_email_html(
+            "Recordatorio de Asesoria",
+            f"""<p>Hola <strong>{target_user.get('name', '')}</strong>,</p>
+            <p>Te recordamos que tienes una asesoria programada:</p>
+            <div style="background:#1a2332;border:1px solid #D4AF37;border-radius:8px;padding:20px;margin:20px 0;">
+              <p style="color:#D4AF37;font-size:16px;margin:0 0 5px;"><strong>{meeting['title']}</strong></p>
+              <p style="color:#ffffff;margin:5px 0;">Fecha: {meeting['date']}</p>
+              <p style="color:#ffffff;margin:5px 0;">Hora: {meeting['time']}</p>
+            </div>
+            <p>No faltes. Si necesitas reprogramar, contacta a tu asesor.</p>"""
+        )
+        subject = f"Recordatorio: {meeting['title']} - {meeting['date']}"
+    else:
+        html = build_email_html(
+            "Recordatorio de Pago",
+            f"""<p>Hola <strong>{target_user.get('name', '')}</strong>,</p>
+            <p>Te recordamos que tienes pagos pendientes. Revisa tus recordatorios en tu perfil de LD Finance.</p>"""
+        )
+        subject = "Recordatorio de Pago - LD Finance"
+    
+    success = await send_email(target_user["email"], subject, html)
+    
+    # Also send to admins
+    for admin in admin_users:
+        if admin["email"] != target_user["email"]:
+            await send_email(admin["email"], f"[CC] {subject}", html)
+    
+    return {"message": "Email enviado" if success else "Error al enviar", "success": success}
+
+# ============== ADMIN SUBSCRIPTION TRACKING ==============
+
+@api_router.put("/admin/users/{user_id}/subscription")
+async def admin_set_subscription(user_id: str, request: Request):
+    """Admin sets user subscription payment day and status"""
+    await get_admin_user(request)
+    body = await request.json()
+    
+    update_fields = {}
+    if "payment_day" in body:
+        update_fields["subscription_payment_day"] = int(body["payment_day"])
+    if "status" in body:
+        update_fields["subscription_status"] = body["status"]  # "ok" or "overdue"
+    if "confirmed_payment" in body and body["confirmed_payment"]:
+        update_fields["subscription_status"] = "ok"
+        update_fields["subscription_last_payment"] = datetime.now(timezone.utc).isoformat()
+    
+    if update_fields:
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": update_fields}
+        )
+    
+    return {"message": "Suscripcion actualizada"}
+
+@api_router.get("/admin/subscriptions")
+async def admin_get_subscriptions(request: Request):
+    """Admin gets all user subscription statuses"""
+    await get_admin_user(request)
+    
+    users = await db.users.find(
+        {"subscription_payment_day": {"$exists": True}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1,
+         "subscription_payment_day": 1, "subscription_status": 1, "subscription_last_payment": 1}
+    ).to_list(200)
+    
+    # Check overdue status
+    today = datetime.now(timezone.utc)
+    for u in users:
+        day = u.get("subscription_payment_day", 1)
+        if today.day > day + 3 and u.get("subscription_status") != "ok":
+            u["subscription_status"] = "overdue"
+    
+    return users
 
 # ============== CATEGORY ENDPOINTS ==============
 
