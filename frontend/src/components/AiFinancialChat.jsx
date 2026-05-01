@@ -50,9 +50,9 @@ const AiFinancialChat = () => {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base text-white" style={{ fontFamily: 'Playfair Display, serif' }}>
           <Sparkles className="w-5 h-5 text-[#D4AF37]" />
-          Asistente Financiero IA
+          LD Assist
         </CardTitle>
-        <p className="text-xs text-gray-500">Preguntame sobre tus finanzas</p>
+        <p className="text-xs text-gray-500">Tu asistente financiero personal</p>
       </CardHeader>
       <CardContent>
         <div className="h-80 overflow-y-auto mb-3 space-y-3 pr-1 scrollbar-thin" data-testid="ai-chat-messages">
