@@ -2479,20 +2479,23 @@ Responde la pregunta del usuario basandote en estos datos reales."""
 
 # ============== EMAIL NOTIFICATION SYSTEM ==============
 
-async def send_email(to_email: str, subject: str, html_body: str):
-    """Send email via Resend with LD Finance branding"""
+async def send_email(to_email: str, subject: str, html_body: str, bcc: list = None):
+    """Send email via Resend with LD Finance branding. Admins go in BCC."""
     import resend
     resend.api_key = os.environ.get("RESEND_API_KEY")
     if not resend.api_key:
         logger.warning("RESEND_API_KEY not set, skipping email")
         return False
     try:
-        resend.Emails.send({
+        payload = {
             "from": "LD Finance <onboarding@resend.dev>",
             "to": [to_email],
             "subject": subject,
             "html": html_body
-        })
+        }
+        if bcc:
+            payload["bcc"] = bcc
+        resend.Emails.send(payload)
         return True
     except Exception as e:
         logger.error(f"Email send failed: {e}")
@@ -2566,12 +2569,10 @@ async def admin_send_reminder_email(request: Request):
         )
         subject = "Recordatorio de Pago - LD Finance"
     
-    success = await send_email(target_user["email"], subject, html)
-    
-    # Also send to admins
-    for admin in admin_users:
-        if admin["email"] != target_user["email"]:
-            await send_email(admin["email"], f"[CC] {subject}", html)
+    success = await send_email(
+        target_user["email"], subject, html,
+        bcc=[a["email"] for a in admin_users if a["email"] != target_user["email"]]
+    )
     
     return {"message": "Email enviado" if success else "Error al enviar", "success": success}
 
@@ -3131,6 +3132,69 @@ async def startup_event():
         logger.info("Object storage initialized")
     except Exception as e:
         logger.error(f"Storage init failed (will retry on first use): {e}")
+    # Start background subscription reminder cron
+    import asyncio
+    asyncio.create_task(subscription_reminder_cron())
+
+async def subscription_reminder_cron():
+    """Background task: sends reminder emails 3 days before subscription due date"""
+    import asyncio
+    await asyncio.sleep(30)  # Initial delay after startup
+    while True:
+        try:
+            today = datetime.now(timezone.utc)
+            due_day_target = today.day + 3
+            
+            # Handle month overflow
+            import calendar
+            max_day = calendar.monthrange(today.year, today.month)[1]
+            if due_day_target > max_day:
+                due_day_target = due_day_target - max_day
+            
+            users_due = await db.users.find(
+                {"subscription_payment_day": due_day_target},
+                {"_id": 0}
+            ).to_list(200)
+            
+            admin_users = await db.users.find({"is_admin": True}, {"_id": 0, "email": 1}).to_list(10)
+            admin_bcc = [a["email"] for a in admin_users]
+            
+            for u in users_due:
+                if u.get("subscription_status") == "ok":
+                    continue
+                
+                reminder_key = f"sub_reminder_{u['user_id']}_{today.strftime('%Y-%m-%d')}"
+                already_sent = await db.notifications.find_one({"notification_id": reminder_key})
+                if already_sent:
+                    continue
+                
+                html = build_email_html(
+                    "Recordatorio de Pago de Suscripcion",
+                    f"""<p>Hola <strong>{u.get('name', '')}</strong>,</p>
+                    <p>Te recordamos que tu pago de suscripcion vence en <strong>3 dias</strong> (dia {u.get('subscription_payment_day')} de este mes).</p>
+                    <p>Por favor realiza tu pago a tiempo para evitar interrupciones.</p>
+                    <div style="background:#D4AF37;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">
+                      <p style="color:#141b2d;font-weight:bold;margin:0;">Fecha limite: Dia {u.get('subscription_payment_day')}</p>
+                    </div>"""
+                )
+                
+                bcc_list = [e for e in admin_bcc if e != u.get("email")]
+                await send_email(u["email"], "Recordatorio: Tu suscripcion vence pronto - LD Finance", html, bcc=bcc_list)
+                
+                await db.notifications.insert_one({
+                    "notification_id": reminder_key,
+                    "user_id": u["user_id"],
+                    "type": "subscription_reminder_sent",
+                    "message": "Recordatorio automatico de suscripcion enviado",
+                    "read": False,
+                    "created_at": today.isoformat()
+                })
+                logger.info(f"Subscription reminder sent to {u.get('email')}")
+            
+        except Exception as e:
+            logger.error(f"Subscription cron error: {e}")
+        
+        await asyncio.sleep(86400)  # Run every 24 hours
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
