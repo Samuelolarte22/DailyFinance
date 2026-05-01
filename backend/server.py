@@ -2404,66 +2404,85 @@ async def ai_financial_chat(request: Request):
     if not api_key:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
-    # Gather user's financial context
-    now = datetime.now(timezone.utc)
-    current_month = f"{now.year}-{str(now.month).zfill(2)}"
-    
-    transactions = await db.transactions.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(5000)
-    debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
-    savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
-    pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
-    
-    # Summarize financial data
-    monthly_txns = [t for t in transactions if isinstance(t.get("date"), str) and t["date"].startswith(current_month)]
-    total_income = sum(t["amount"] for t in transactions if t["type"] == "income")
-    total_expenses = sum(t["amount"] for t in transactions if t["type"] == "expense")
-    month_income = sum(t["amount"] for t in monthly_txns if t["type"] == "income")
-    month_expenses = sum(t["amount"] for t in monthly_txns if t["type"] == "expense")
-    
-    # Category breakdown this month
-    cat_breakdown = {}
-    for t in monthly_txns:
-        if t["type"] == "expense":
-            cat_breakdown[t["category"]] = cat_breakdown.get(t["category"], 0) + t["amount"]
-    
-    # Recent transactions (last 20)
-    recent = sorted(transactions, key=lambda x: x.get("date", ""), reverse=True)[:20]
-    recent_text = "\n".join([
-        f"- {t['date']}: {t['type']} {t['category']} ${t['amount']:,} {t.get('description', '')}"
-        for t in recent
-    ])
-    
-    debt_text = "\n".join([f"- {d['name']}: Total ${d['total_amount']:,}, Pendiente ${d['current_amount']:,}" for d in debts]) or "Sin deudas"
-    savings_text = "\n".join([f"- {s['name']}: ${s['current_amount']:,} de ${s['target_amount']:,}" for s in savings]) or "Sin metas de ahorro"
-    pocket_text = "\n".join([f"- {p['name']}: ${p['balance']:,}" for p in pockets]) or "Sin bolsillos"
-    cat_text = "\n".join([f"- {cat}: ${amt:,}" for cat, amt in sorted(cat_breakdown.items(), key=lambda x: -x[1])]) or "Sin gastos este mes"
-    
-    system_prompt = f"""Eres un asesor financiero inteligente de LD Finance. Tienes acceso completo a los datos financieros del usuario.
-Responde en español, de forma clara y util. Puedes dar recomendaciones, analizar patrones, y responder preguntas especificas.
-Usa formato corto y directo. Si mencionas montos, usa formato colombiano ($ con puntos como separador de miles).
-
-DATOS DEL USUARIO ({user.get('name', 'Usuario')}):
-- Balance global: Ingresos totales ${total_income:,} - Gastos totales ${total_expenses:,} = ${total_income - total_expenses:,}
-- Este mes ({current_month}): Ingresos ${month_income:,}, Gastos ${month_expenses:,}
+    try:
+        # Gather user's financial context
+        now = datetime.now(timezone.utc)
+        current_month = f"{now.year}-{str(now.month).zfill(2)}"
+        
+        transactions = await db.transactions.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(5000)
+        debts = await db.debts.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+        savings = await db.savings_goals.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+        pockets = await db.pockets.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
+        
+        # Safe sum helpers
+        def safe_amount(t):
+            try:
+                return float(t.get("amount", 0))
+            except (ValueError, TypeError):
+                return 0
+        
+        def safe_date(t):
+            d = t.get("date", "")
+            if isinstance(d, str):
+                return d[:10]
+            try:
+                return d.strftime("%Y-%m-%d")
+            except Exception:
+                return str(d)[:10]
+        
+        total_income = sum(safe_amount(t) for t in transactions if t.get("type") == "income")
+        total_expenses = sum(safe_amount(t) for t in transactions if t.get("type") == "expense")
+        
+        monthly_txns = [t for t in transactions if safe_date(t).startswith(current_month)]
+        month_income = sum(safe_amount(t) for t in monthly_txns if t.get("type") == "income")
+        month_expenses = sum(safe_amount(t) for t in monthly_txns if t.get("type") == "expense")
+        
+        # Category breakdown
+        cat_breakdown = {}
+        for t in monthly_txns:
+            if t.get("type") == "expense":
+                cat = t.get("category", "Otro")
+                cat_breakdown[cat] = cat_breakdown.get(cat, 0) + safe_amount(t)
+        
+        # Recent transactions
+        recent = sorted(transactions, key=lambda x: safe_date(x), reverse=True)[:15]
+        recent_lines = []
+        for t in recent:
+            recent_lines.append(f"- {safe_date(t)}: {t.get('type','?')} {t.get('category','?')} ${int(safe_amount(t)):,} {t.get('description','')}")
+        recent_text = "\n".join(recent_lines) or "Sin transacciones"
+        
+        debt_lines = [f"- {d.get('name','?')}: Total ${int(d.get('total_amount',0)):,}, Pendiente ${int(d.get('current_amount',0)):,}" for d in debts]
+        savings_lines = [f"- {s.get('name','?')}: ${int(s.get('current_amount',0)):,} de ${int(s.get('target_amount',0)):,}" for s in savings]
+        pocket_lines = [f"- {p.get('name','?')}: ${int(p.get('balance',0)):,}" for p in pockets]
+        cat_lines = [f"- {cat}: ${int(amt):,}" for cat, amt in sorted(cat_breakdown.items(), key=lambda x: -x[1])]
+        
+        context = f"""DATOS DEL USUARIO ({user.get('name', 'Usuario')}):
+- Balance global: Ingresos ${int(total_income):,} - Gastos ${int(total_expenses):,} = ${int(total_income - total_expenses):,}
+- Este mes ({current_month}): Ingresos ${int(month_income):,}, Gastos ${int(month_expenses):,}
 
 GASTOS POR CATEGORIA ESTE MES:
-{cat_text}
+{chr(10).join(cat_lines) or 'Sin gastos este mes'}
 
 DEUDAS:
-{debt_text}
+{chr(10).join(debt_lines) or 'Sin deudas'}
 
 METAS DE AHORRO:
-{savings_text}
+{chr(10).join(savings_lines) or 'Sin metas'}
 
-BOLSILLOS DIGITALES:
-{pocket_text}
+BOLSILLOS:
+{chr(10).join(pocket_lines) or 'Sin bolsillos'}
 
-ULTIMAS 20 TRANSACCIONES:
-{recent_text}
+ULTIMAS TRANSACCIONES:
+{recent_text}"""
 
-Responde la pregunta del usuario basandote en estos datos reales."""
+        system_prompt = f"""Eres un asesor financiero inteligente de LD Finance. Tienes acceso a los datos financieros del usuario.
+Responde en español, de forma clara y directa. Da recomendaciones practicas.
+Si mencionas montos, usa formato colombiano ($ con puntos).
 
-    try:
+{context}
+
+Responde basandote en estos datos reales."""
+
         chat = LlmChat(
             api_key=api_key,
             session_id=session_id,
@@ -2472,10 +2491,12 @@ Responde la pregunta del usuario basandote en estos datos reales."""
         
         response = await chat.send_message(UserMessage(text=message))
         
-        return {"response": response, "session_id": session_id}
+        return {"response": str(response), "session_id": session_id}
     except Exception as e:
-        logger.error(f"AI chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        logger.error(f"AI chat error: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error del asistente: {str(e)}")
 
 # ============== EMAIL NOTIFICATION SYSTEM ==============
 
@@ -2562,10 +2583,13 @@ async def admin_send_reminder_email(request: Request):
         )
         subject = f"Recordatorio: {meeting['title']} - {meeting['date']}"
     else:
+        payment_day = target_user.get("subscription_payment_day", "")
         html = build_email_html(
             "Recordatorio de Pago",
             f"""<p>Hola <strong>{target_user.get('name', '')}</strong>,</p>
-            <p>Te recordamos que tienes pagos pendientes. Revisa tus recordatorios en tu perfil de LD Finance.</p>"""
+            <p>Te recordamos que tu pago esta proximo a vencer.</p>
+            {f'<div style="background:#1a2332;border:1px solid #D4AF37;border-radius:8px;padding:20px;margin:20px 0;text-align:center;"><p style="color:#D4AF37;font-size:18px;margin:0;font-weight:bold;">Fecha de pago: Dia {payment_day} de cada mes</p></div>' if payment_day else ''}
+            <p>Revisa tus recordatorios en tu perfil de LD Finance para mas detalles.</p>"""
         )
         subject = "Recordatorio de Pago - LD Finance"
     
