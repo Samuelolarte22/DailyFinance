@@ -29,6 +29,13 @@
 48. **Email Reminders** — Resend integration with branded LD Finance HTML templates. Payment and meeting reminders with CC to admins.
 49. **Admin Subscription Tracking** — Payment day per user, ok/overdue status, confirm payment button. Admin-only visibility.
 
+### Phase 9 - V7.0 (May 2026)
+50. **Stacked Chart Fix** — Tooltip shows "Ingresos/Gastos/Ahorro/Deudas" instead of IDs. Colors: green/red/blue/yellow for clear distinction.
+51. **Auto-Create Categories** — Creating a debt or savings goal auto-creates a matching expense category.
+52. **Category Filter** — Transactions page has category filter dropdown.
+53. **Streak (Duolingo-style)** — Flame icon + count in header. Tracks consecutive days with transactions.
+54. **Budget Quincenal** — Toggle Mensual/Quincenal. Biweekly view: Q1 projected, Q1 checkbox, Q1 real, Q2 projected, Q2 checkbox, Q2 real, Estado.
+
 ## Key API Endpoints
 - Auth, Pockets (GET/POST/DELETE/PUT edit/POST withdraw/POST fund)
 - Transactions, Shared Transactions, Budgets (month-specific), Dashboard
