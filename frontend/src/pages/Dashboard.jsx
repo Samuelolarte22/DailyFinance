@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [editComment, setEditComment] = useState("");
   const [editCommentRecurring, setEditCommentRecurring] = useState(false);
   const [annualOverview, setAnnualOverview] = useState([]);
+  const [budgetViewMode, setBudgetViewMode] = useState("monthly"); // "monthly" or "biweekly"
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -81,7 +82,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleSaveBudget = async (category, amount, budgetType = "expense", comment = null, commentRecurring = false) => {
+  const handleSaveBudget = async (category, amount, budgetType = "expense", comment = null, commentRecurring = false, biweeklyData = null) => {
     if (!amount || parseInt(amount) <= 0) return;
     try {
       const payload = {
@@ -91,6 +92,13 @@ const Dashboard = () => {
       if (comment !== null) {
         payload.comment = comment;
         payload.comment_recurring = commentRecurring;
+      }
+      if (biweeklyData) {
+        payload.period_type = "biweekly";
+        if (biweeklyData.q1_projected !== undefined) payload.q1_projected = parseInt(biweeklyData.q1_projected) || 0;
+        if (biweeklyData.q1_done !== undefined) payload.q1_done = biweeklyData.q1_done;
+        if (biweeklyData.q2_projected !== undefined) payload.q2_projected = parseInt(biweeklyData.q2_projected) || 0;
+        if (biweeklyData.q2_done !== undefined) payload.q2_done = biweeklyData.q2_done;
       }
       await axios.post(`${API}/budgets`, payload, { withCredentials: true });
       toast.success("Presupuesto guardado");
@@ -432,12 +440,25 @@ const Dashboard = () => {
       {/* Budget: Projected vs Actual — Table Format */}
       <Card className="bg-[#1a2332] border-[#2a3444]" data-testid="budget-comparison-card">
         <CardHeader className="pb-2">
-          <CardTitle className="text-white flex items-center gap-2 text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
-            <Target className="w-5 h-5 text-[#D4AF37]" />
-            Proyectado vs Real
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white flex items-center gap-2 text-base" style={{ fontFamily: 'Playfair Display, serif' }}>
+              <Target className="w-5 h-5 text-[#D4AF37]" />
+              Proyectado vs Real
+            </CardTitle>
+            <div className="flex gap-0.5 bg-[#141b2d] rounded-lg p-0.5 border border-[#2a3444]" data-testid="budget-view-toggle">
+              <button onClick={() => setBudgetViewMode("monthly")}
+                className={`px-2.5 py-1 text-[10px] rounded-md transition-colors ${budgetViewMode === "monthly" ? 'bg-[#D4AF37] text-[#141b2d] font-medium' : 'text-gray-400 hover:text-white'}`}>
+                Mensual
+              </button>
+              <button onClick={() => setBudgetViewMode("biweekly")}
+                className={`px-2.5 py-1 text-[10px] rounded-md transition-colors ${budgetViewMode === "biweekly" ? 'bg-[#D4AF37] text-[#141b2d] font-medium' : 'text-gray-400 hover:text-white'}`}>
+                Quincenal
+              </button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {budgetViewMode === "monthly" ? (
           <Tabs defaultValue="expenses">
             <TabsList className="bg-[#141b2d] border border-[#2a3444] h-8 mb-3">
               <TabsTrigger value="expenses" className="text-xs data-[state=active]:bg-[#D4AF37] data-[state=active]:text-[#141b2d] h-6 px-3">Gastos</TabsTrigger>
@@ -646,6 +667,89 @@ const Dashboard = () => {
               </div>
             </TabsContent>
           </Tabs>
+          ) : (
+          /* Biweekly View */
+          <div className="overflow-x-auto" data-testid="biweekly-budget-table">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] text-gray-500 border-b border-[#2a3444]">
+                  <th className="text-left py-2 pr-1 font-medium">Categoria</th>
+                  <th className="text-right py-2 px-1 font-medium">Proy. Q1</th>
+                  <th className="text-center py-2 px-1 font-medium w-6">OK</th>
+                  <th className="text-right py-2 px-1 font-medium">Real Q1</th>
+                  <th className="text-right py-2 px-1 font-medium">Proy. Q2</th>
+                  <th className="text-center py-2 px-1 font-medium w-6">OK</th>
+                  <th className="text-right py-2 px-1 font-medium">Real Q2</th>
+                  <th className="text-right py-2 pl-1 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {budgetComparison.map(item => {
+                  const isEdQ1 = editingBudget === `bw-q1-${item.category}`;
+                  const isEdQ2 = editingBudget === `bw-q2-${item.category}`;
+                  const q1Real = Math.round(item.actual * 0.5); // approximate split
+                  const q2Real = item.actual - q1Real;
+                  const totalProj = (item.q1_projected || 0) + (item.q2_projected || 0);
+                  const isOver = totalProj > 0 ? item.actual > totalProj : item.actual > 0;
+                  return (
+                    <tr key={item.category} className="border-b border-[#2a3444]/30 hover:bg-[#141b2d]/50">
+                      <td className="py-2 pr-1 text-white font-medium text-xs">{item.category}</td>
+                      <td className="py-2 px-1 text-right">
+                        {isEdQ1 ? (
+                          <div className="flex items-center justify-end gap-0.5">
+                            <CurrencyInput value={editAmount} onChange={setEditAmount}
+                              className="bg-[#141b2d] border-[#2a3444] text-white w-16 h-5 text-[10px]"
+                              onKeyDown={(e) => { if (e.key === 'Enter') { handleSaveBudget(item.category, item.projected || editAmount, "expense", null, false, { q1_projected: editAmount }); } }} />
+                            <button onClick={() => handleSaveBudget(item.category, item.projected || editAmount, "expense", null, false, { q1_projected: editAmount })} className="text-green-400"><Check className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-gray-400 cursor-pointer hover:text-[#D4AF37]"
+                            onClick={() => { setEditingBudget(`bw-q1-${item.category}`); setEditAmount(String(item.q1_projected || 0)); }}>
+                            {item.q1_projected ? formatCurrency(item.q1_projected) : <span className="text-gray-600">—</span>}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-1 text-center">
+                        <input type="checkbox" checked={item.q1_done || false}
+                          onChange={(e) => handleSaveBudget(item.category, item.projected || 1, "expense", null, false, { q1_done: e.target.checked, q1_projected: item.q1_projected || 0 })}
+                          className="w-3 h-3 rounded accent-[#D4AF37]" />
+                      </td>
+                      <td className="py-2 px-1 text-right font-mono text-gray-300">{q1Real > 0 ? formatCurrency(q1Real) : '—'}</td>
+                      <td className="py-2 px-1 text-right">
+                        {isEdQ2 ? (
+                          <div className="flex items-center justify-end gap-0.5">
+                            <CurrencyInput value={editAmount} onChange={setEditAmount}
+                              className="bg-[#141b2d] border-[#2a3444] text-white w-16 h-5 text-[10px]"
+                              onKeyDown={(e) => { if (e.key === 'Enter') { handleSaveBudget(item.category, item.projected || editAmount, "expense", null, false, { q2_projected: editAmount }); } }} />
+                            <button onClick={() => handleSaveBudget(item.category, item.projected || editAmount, "expense", null, false, { q2_projected: editAmount })} className="text-green-400"><Check className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-gray-400 cursor-pointer hover:text-[#D4AF37]"
+                            onClick={() => { setEditingBudget(`bw-q2-${item.category}`); setEditAmount(String(item.q2_projected || 0)); }}>
+                            {item.q2_projected ? formatCurrency(item.q2_projected) : <span className="text-gray-600">—</span>}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-1 text-center">
+                        <input type="checkbox" checked={item.q2_done || false}
+                          onChange={(e) => handleSaveBudget(item.category, item.projected || 1, "expense", null, false, { q2_done: e.target.checked, q2_projected: item.q2_projected || 0 })}
+                          className="w-3 h-3 rounded accent-[#D4AF37]" />
+                      </td>
+                      <td className="py-2 px-1 text-right font-mono text-gray-300">{q2Real > 0 ? formatCurrency(q2Real) : '—'}</td>
+                      <td className="py-2 pl-1 text-right">
+                        {totalProj > 0 ? (
+                          <span className={`text-[9px] px-1 py-0.5 rounded-full ${isOver ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                            {isOver ? 'Excede' : 'OK'}
+                          </span>
+                        ) : <span className="text-gray-600 text-[10px]">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          )}
         </CardContent>
       </Card>
 

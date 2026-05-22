@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth, useTheme } from "../App";
+import { useAuth, useTheme, API } from "../App";
+import axios from "axios";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -23,7 +24,8 @@ import {
   ShieldCheck,
   Users,
   Eye,
-  ArrowLeft
+  ArrowLeft,
+  Flame
 } from "lucide-react";
 import AnimatedLogo from "./AnimatedLogo";
 import FloatingTransaction from "./FloatingTransaction";
@@ -34,6 +36,22 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      axios.get(`${API}/streak`, { withCredentials: true })
+        .then(r => setStreak(r.data.streak || 0))
+        .catch(() => {});
+    }
+    const handler = () => {
+      axios.get(`${API}/streak`, { withCredentials: true })
+        .then(r => setStreak(r.data.streak || 0))
+        .catch(() => {});
+    };
+    window.addEventListener('transaction-created', handler);
+    return () => window.removeEventListener('transaction-created', handler);
+  }, [user]);
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -134,6 +152,13 @@ const Layout = ({ children }) => {
 
             {/* User Menu & Mobile Toggle */}
             <div className="flex items-center gap-2">
+              {/* Streak */}
+              {streak > 0 && (
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20" data-testid="streak-badge">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm font-bold text-orange-500 font-mono">{streak}</span>
+                </div>
+              )}
               {/* User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -196,9 +196,14 @@ class BudgetCreate(BaseModel):
     category: str
     projected_amount: float
     budget_type: Optional[str] = "expense"  # "expense" or "income"
-    month: Optional[str] = None  # YYYY-MM, if None uses current
+    month: Optional[str] = None  # YYYY-MM
     comment: Optional[str] = None
     comment_recurring: Optional[bool] = False
+    period_type: Optional[str] = "monthly"  # "monthly" or "biweekly"
+    q1_projected: Optional[float] = None
+    q1_done: Optional[bool] = False
+    q2_projected: Optional[float] = None
+    q2_done: Optional[bool] = False
 
 # ============== BANK MODELS ==============
 
@@ -480,6 +485,17 @@ async def create_debt(debt_data: DebtCreate, request: Request):
     doc["created_at"] = doc["created_at"].isoformat()
     await db.debts.insert_one(doc)
     
+    # Auto-create expense category with debt name
+    existing_cat = await db.categories.find_one({"user_id": user["user_id"], "name": data["name"], "type": "expense"})
+    if not existing_cat:
+        await db.categories.insert_one({
+            "category_id": f"cat_{uuid.uuid4().hex[:12]}",
+            "user_id": user["user_id"],
+            "name": data["name"],
+            "type": "expense",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
     return {"message": "Debt created", "debt_id": debt.debt_id, "min_payment": doc.get("min_payment", 0)}
 
 @api_router.put("/debts/{debt_id}/pay")
@@ -549,6 +565,17 @@ async def create_savings_goal(goal_data: SavingsGoalCreate, request: Request):
     doc = goal.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.savings_goals.insert_one(doc)
+    
+    # Auto-create expense category with savings goal name
+    existing_cat = await db.categories.find_one({"user_id": user["user_id"], "name": goal_data.name, "type": "expense"})
+    if not existing_cat:
+        await db.categories.insert_one({
+            "category_id": f"cat_{uuid.uuid4().hex[:12]}",
+            "user_id": user["user_id"],
+            "name": goal_data.name,
+            "type": "expense",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
     
     return {"message": "Savings goal created", "goal_id": goal.goal_id}
 
@@ -931,6 +958,62 @@ async def get_reports_timeline(request: Request, period: str = "month"):
     
     return {"timeline": timeline, "period": period}
 
+# ============== STREAK TRACKING ==============
+
+@api_router.get("/streak")
+async def get_streak(request: Request):
+    """Get user's transaction streak (consecutive days)"""
+    user = await get_current_user(request)
+    
+    transactions = await db.transactions.find(
+        {"user_id": user["user_id"]}, {"_id": 0, "date": 1}
+    ).to_list(5000)
+    
+    # Get unique dates
+    dates_set = set()
+    for t in transactions:
+        d = t.get("date", "")
+        if isinstance(d, str):
+            dates_set.add(d[:10])
+        else:
+            try:
+                dates_set.add(d.strftime("%Y-%m-%d"))
+            except Exception:
+                pass
+    
+    if not dates_set:
+        return {"streak": 0, "max_streak": 0, "total_days": 0}
+    
+    sorted_dates = sorted(dates_set, reverse=True)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    # Current streak: count from today backwards
+    streak = 0
+    if today in dates_set or yesterday in dates_set:
+        check_date = datetime.now(timezone.utc).date()
+        if today not in dates_set:
+            check_date = check_date - timedelta(days=1)
+        while check_date.strftime("%Y-%m-%d") in dates_set:
+            streak += 1
+            check_date = check_date - timedelta(days=1)
+    
+    # Max streak ever
+    max_streak = 0
+    current_run = 1
+    for i in range(1, len(sorted_dates)):
+        from datetime import date as dt_date
+        prev = dt_date.fromisoformat(sorted_dates[i-1])
+        curr = dt_date.fromisoformat(sorted_dates[i])
+        if (prev - curr).days == 1:
+            current_run += 1
+            max_streak = max(max_streak, current_run)
+        else:
+            current_run = 1
+    max_streak = max(max_streak, current_run) if sorted_dates else 0
+    
+    return {"streak": streak, "max_streak": max_streak, "total_days": len(dates_set)}
+
 # ============== DASHBOARD SUMMARY ==============
 
 @api_router.get("/dashboard")
@@ -1242,6 +1325,17 @@ async def upsert_budget(budget_data: BudgetCreate, request: Request):
     if budget_data.comment is not None:
         update_fields["comment"] = budget_data.comment
         update_fields["comment_recurring"] = budget_data.comment_recurring
+    # Biweekly fields
+    if budget_data.period_type:
+        update_fields["period_type"] = budget_data.period_type
+    if budget_data.q1_projected is not None:
+        update_fields["q1_projected"] = budget_data.q1_projected
+    if budget_data.q1_done is not None:
+        update_fields["q1_done"] = budget_data.q1_done
+    if budget_data.q2_projected is not None:
+        update_fields["q2_projected"] = budget_data.q2_projected
+    if budget_data.q2_done is not None:
+        update_fields["q2_done"] = budget_data.q2_done
     
     if existing:
         await db.budgets.update_one(
@@ -1364,7 +1458,11 @@ async def get_budget_comparison(request: Request, month: Optional[str] = None, b
             "over_budget": over,
             "budget_id": budget_id,
             "comment": budget_map.get(cat, {}).get("comment", "") or recurring_comments.get(cat, ""),
-            "comment_recurring": budget_map.get(cat, {}).get("comment_recurring", False)
+            "comment_recurring": budget_map.get(cat, {}).get("comment_recurring", False),
+            "q1_projected": budget_map.get(cat, {}).get("q1_projected", 0),
+            "q1_done": budget_map.get(cat, {}).get("q1_done", False),
+            "q2_projected": budget_map.get(cat, {}).get("q2_projected", 0),
+            "q2_done": budget_map.get(cat, {}).get("q2_done", False)
         })
     
     return comparison

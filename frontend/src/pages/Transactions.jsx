@@ -107,6 +107,7 @@ const Transactions = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterType, setFilterType] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -368,13 +369,18 @@ const Transactions = () => {
     setSelectedMonth(`${newYear}-${String(newMonth).padStart(2, '0')}`);
   };
 
-  // Filter by month and type
+  // Filter by month, type, and category
   const filteredTransactions = transactions.filter(txn => {
     const txnMonth = txn.date.substring(0, 7);
     const monthMatch = txnMonth === selectedMonth;
     const typeMatch = filterType === "all" || txn.type === filterType;
-    return monthMatch && typeMatch;
+    const catMatch = filterCategory === "all" || txn.category === filterCategory;
+    return monthMatch && typeMatch && catMatch;
   });
+
+  // Get unique categories for filter
+  const monthTransactions = transactions.filter(t => t.date.substring(0, 7) === selectedMonth);
+  const uniqueCategories = [...new Set(monthTransactions.map(t => t.category))].sort();
 
   // Calculate monthly totals
   const monthlyIncome = filteredTransactions
@@ -722,6 +728,17 @@ const Transactions = () => {
             <SelectItem value="all" className="text-gray-300 focus:bg-[#2a3444] focus:text-white">Todas</SelectItem>
             <SelectItem value="income" className="text-gray-300 focus:bg-[#2a3444] focus:text-white">Ingresos</SelectItem>
             <SelectItem value="expense" className="text-gray-300 focus:bg-[#2a3444] focus:text-white">Gastos</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-40 bg-[#1a2332] border-[#2a3444] text-white" data-testid="filter-category-select">
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1a2332] border-[#2a3444] max-h-60">
+            <SelectItem value="all" className="text-gray-300 focus:bg-[#2a3444] focus:text-white">Todas las categorias</SelectItem>
+            {uniqueCategories.map(cat => (
+              <SelectItem key={cat} value={cat} className="text-gray-300 focus:bg-[#2a3444] focus:text-white">{cat}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <span className="text-sm text-gray-500 ml-2">

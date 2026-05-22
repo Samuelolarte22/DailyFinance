@@ -368,12 +368,13 @@ const Reports = () => {
                   <Tooltip
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null;
+                      const nameMap = { income_pct: 'Ingresos', expenses_pct: 'Gastos', savings_pct: 'Ahorro', debts_pct: 'Deudas' };
                       return (
                         <div className="bg-[#1a2332] border border-[#2a3444] rounded-lg px-4 py-3 shadow-xl text-sm">
                           <p className="text-white font-medium mb-1">{label}</p>
                           {payload.map((p, i) => (
                             <p key={i} style={{ color: p.fill }} className="font-mono">
-                              {p.name}: {p.value}%
+                              {nameMap[p.dataKey] || p.name}: {p.value}%
                             </p>
                           ))}
                         </div>
@@ -384,10 +385,10 @@ const Reports = () => {
                     const m = { income_pct: 'Ingresos', expenses_pct: 'Gastos', savings_pct: 'Ahorro', debts_pct: 'Deudas' };
                     return m[v] || v;
                   }} wrapperStyle={{ fontSize: '12px' }} />
-                  <Bar dataKey="income_pct" name="income_pct" stackId="a" fill="#D4AF37" />
-                  <Bar dataKey="expenses_pct" name="expenses_pct" stackId="a" fill="#8B4513" />
-                  <Bar dataKey="savings_pct" name="savings_pct" stackId="a" fill="#A0845C" />
-                  <Bar dataKey="debts_pct" name="debts_pct" stackId="a" fill="#C8B070" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="income_pct" name="income_pct" stackId="a" fill="#22c55e" />
+                  <Bar dataKey="expenses_pct" name="expenses_pct" stackId="a" fill="#ef4444" />
+                  <Bar dataKey="savings_pct" name="savings_pct" stackId="a" fill="#3b82f6" />
+                  <Bar dataKey="debts_pct" name="debts_pct" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
